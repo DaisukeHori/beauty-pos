@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Beauty Salon Staff",
+    "slug": "beauty-staff",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ec4899"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.beautysalon.staff",
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ec4899"
+      },
+      "package": "com.beautysalon.staff",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "カメラを使用して写真を撮影します"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "写真ライブラリにアクセスします",
+          "savePhotosPermission": "写真を保存します"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "会話を録音するためにマイクを使用します"
+        }
+      ]
+    ],
+    "scheme": "beauty-staff",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

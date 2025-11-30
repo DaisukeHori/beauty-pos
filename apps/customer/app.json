@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Beauty Salon Customer",
+    "slug": "beauty-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ec4899"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.beautysalon.customer",
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ec4899"
+      },
+      "package": "com.beautysalon.customer",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ヘアスタイルシミュレーションのためカメラを使用します"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "写真ライブラリにアクセスします"
+        }
+      ]
+    ],
+    "scheme": "beauty-customer",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
