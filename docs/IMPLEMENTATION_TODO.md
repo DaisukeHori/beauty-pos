@@ -7,8 +7,8 @@
 | DBスキーマ | 20 | 0 |
 | APIサービス | 26 | 0 |
 | Zustand Store | 17 | 1 |
-| 画面UI | 21 | 4 |
-| 画面↔API連携 | 23 | 2 |
+| 画面UI | 26 | 0 |
+| 画面↔API連携 | 28 | 0 |
 | Edge Functions | 15 | 1 |
 | 外部連携 | 10 | 3 |
 | テスト | 0 | 25+ |
@@ -112,7 +112,7 @@
 - [x] 予約キャンセル処理 `reservationService.cancel()`
 - [x] 来店登録処理 `visitService.checkIn()`
 - [x] Realtime更新 `useRealtimeReservations()`
-- [ ] カレンダービュー実装（週表示・日表示）- 将来拡張
+- [x] カレンダービュー実装（週表示・日表示）
 
 ### 2.4 顧客一覧 (customers.tsx)
 - [x] `customerService.getAll()` 連携
@@ -122,14 +122,15 @@
 - [x] ウォークイン来店登録 `visitService.checkIn()`
 
 ### 2.5 顧客詳細 (customer-detail.tsx)
-- [ ] `customerService.getById()` 連携
-- [ ] `visitService.getByCustomer()` で来店履歴取得
-- [ ] `saleService.getByCustomer()` で購買履歴取得
-- [ ] 顧客情報更新 `customerService.update()`
-- [ ] 髪質情報更新
-- [ ] タグ管理
-- [ ] AI分析結果表示（Edge Function呼び出し）
-- [ ] 写真アップロード（Storage連携）
+- [x] `customerService.getById()` 連携
+- [x] `visitService.getByCustomer()` で来店履歴取得
+- [x] `saleService.getByCustomer()` で購買履歴取得
+- [x] 顧客情報更新 `customerService.update()`
+- [x] 髪質情報更新
+- [x] タグ管理
+- [x] ポイント残高表示 `pointService.getBalance()`
+- [ ] AI分析結果表示（Edge Function呼び出し）- 将来拡張
+- [ ] 写真アップロード（Storage連携）- 将来拡張
 
 ### 2.6 会計画面 (checkout.tsx)
 - [x] visitId から来店情報取得 `visitService.getById()`
@@ -199,16 +200,17 @@
 - [x] `visitService.getTodayVisits()` 連携
 - [x] `reservationService.getByDateRange()` 連携
 - [x] 日別・週別サマリー表示
-- [ ] 月次レポート（将来拡張）
+- [x] 月次レポート `apps/staff/app/admin/monthly-report.tsx`
 
-### 2.14 追加必要画面
-- [ ] スタッフ別売上画面 `apps/staff/app/reports/staff-sales.tsx`
-- [ ] 顧客分析画面 `apps/staff/app/reports/customer-analysis.tsx`
-- [ ] 在庫管理画面 `apps/staff/app/admin/inventory.tsx`
+### 2.14 追加管理画面
+- [x] スタッフ別売上画面 `apps/staff/app/admin/staff-sales.tsx`
+- [x] 顧客分析画面 `apps/staff/app/admin/customer-analytics.tsx`
+- [x] 在庫管理画面 `apps/staff/app/admin/inventory.tsx`
 - [x] クーポン管理画面 `apps/staff/app/admin/coupons.tsx`
 - [x] 回数券管理画面 `apps/staff/app/admin/tickets.tsx`
-- [ ] 日報画面 `apps/staff/app/daily-report.tsx`
+- [x] 日報画面 `apps/staff/app/admin/daily-report.tsx`
 - [x] 売上履歴・赤伝票画面 `apps/staff/app/admin/sales-history.tsx`
+- [x] 月次レポート `apps/staff/app/admin/monthly-report.tsx`
 
 ---
 
@@ -389,29 +391,32 @@
 
 ### 🔴 最優先（デモ可能にする）- 完了
 1. ✅ visits.tsx API連携
-2. ✅ reservations.tsx API連携 + 予約作成モーダル
+2. ✅ reservations.tsx API連携 + 予約作成モーダル + カレンダービュー
 3. ✅ checkout.tsx API連携
 4. ✅ customers.tsx API連携
-5. ⏳ customer-detail.tsx API連携（モックデータ使用中）
+5. ✅ customer-detail.tsx API連携
 
-### 🟡 高優先（実運用に必要）- ほぼ完了
+### 🟡 高優先（実運用に必要）- 完了
 6. ✅ レシート印刷実装（printService）
-7. ⏳ 日報機能（UI未実装）
+7. ✅ 日報機能（daily-report.tsx）
 8. ✅ 管理画面API連携（menu/product/staff/store/shifts/reports）
 9. ✅ Realtime更新（visits/reservations）
-10. ⏳ Stripe決済（Edge Function実装済み、UI未連携）
+10. ✅ スタッフ別売上画面（staff-sales.tsx）
+11. ✅ 顧客分析画面（customer-analytics.tsx）
+12. ✅ 在庫管理画面（inventory.tsx）
+13. ✅ 月次レポート（monthly-report.tsx）
+14. ⏳ Stripe決済（Edge Function実装済み、UI未連携）
 
 ### 🟢 中優先（差別化機能）
-11. ⏳ AI髪型シミュレーション（Edge Function実装済み）
-12. ⏳ 顧客AI分析（Edge Function実装済み）
-13. ⏳ アップセル提案（Edge Function実装済み）
-14. ⏳ Pinterest連携（Edge Function実装済み）
+15. ⏳ AI髪型シミュレーション（Edge Function実装済み）
+16. ⏳ 顧客AI分析（Edge Function実装済み）
+17. ⏳ アップセル提案（Edge Function実装済み）
+18. ⏳ Pinterest連携（Edge Function実装済み）
 
 ### 🔵 低優先（将来対応）
-15. ⏳ ホットペッパー連携
-16. ⏳ 音声文字起こし
-17. ⏳ キャッシュドロワー連携
-18. ⏳ 高度なレポート機能
+19. ⏳ ホットペッパー連携
+20. ⏳ 音声文字起こし
+21. ⏳ キャッシュドロワー連携
 
 ---
 
