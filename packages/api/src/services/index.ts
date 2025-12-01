@@ -250,3 +250,13 @@ export type {
   PaymentMethod,
   Invoice,
 } from './subscriptionService';
+
+export { csvService } from './csvService';
+export type {
+  CsvAction,
+  ImportResult,
+  ImportError,
+  ExportEntityType,
+  ImportEntityType,
+  CsvRow,
+} from './csvService';

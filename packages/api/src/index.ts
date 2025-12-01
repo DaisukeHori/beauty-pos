@@ -8,6 +8,9 @@ export type { Database, Tables, InsertTables, UpdateTables, Json } from './types
 // Services
 export * from './services';
 
+// Utils
+export * from './utils/csvValidator';
+
 // Re-export commonly used types
 export type {
   // Auth
