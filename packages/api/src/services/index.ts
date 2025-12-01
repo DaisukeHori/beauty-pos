@@ -221,3 +221,20 @@ export type {
   CustomerRankInfo,
   RankChangeRecord,
 } from './memberRankService';
+
+export { integrationSettingsService } from './integrationSettingsService';
+export type {
+  IntegrationType,
+  IntegrationConfig,
+  IntegrationSettings,
+  IntegrationInfo,
+} from './integrationSettingsService';
+
+export { featureSettingsService } from './featureSettingsService';
+export type {
+  FeatureType,
+  FeatureConfig,
+  FeatureSettings,
+  FeatureCategory,
+  FeatureInfo,
+} from './featureSettingsService';

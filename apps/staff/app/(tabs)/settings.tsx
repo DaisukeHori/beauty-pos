@@ -120,6 +120,27 @@ export default function SettingsScreen() {
     },
   ];
 
+  const systemSettings: SettingItem[] = [
+    {
+      label: '外部連携設定',
+      icon: '🔗',
+      onPress: () => router.push('/admin/integrations'),
+      showArrow: true,
+    },
+    {
+      label: '機能設定',
+      icon: '⚙️',
+      onPress: () => router.push('/admin/features'),
+      showArrow: true,
+    },
+    {
+      label: '権限管理',
+      icon: '🔐',
+      onPress: () => router.push('/admin/permissions'),
+      showArrow: true,
+    },
+  ];
+
   const reportSettings: SettingItem[] = [
     {
       label: '日報',
@@ -288,6 +309,16 @@ export default function SettingsScreen() {
         <Card variant="outlined" size="md">
           {adminSettings.map((item, index) =>
             renderSettingItem(item, index, index === adminSettings.length - 1)
+          )}
+        </Card>
+      </View>
+
+      {/* System Settings */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>システム設定</Text>
+        <Card variant="outlined" size="md">
+          {systemSettings.map((item, index) =>
+            renderSettingItem(item, index, index === systemSettings.length - 1)
           )}
         </Card>
       </View>
