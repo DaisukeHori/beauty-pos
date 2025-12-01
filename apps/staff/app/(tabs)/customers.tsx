@@ -63,7 +63,7 @@ export default function CustomersScreen() {
         email: c.email || undefined,
         totalVisits: c.total_visits || 0,
         lastVisitAt: c.last_visit_at || undefined,
-        pointsBalance: c.points || 0,
+        pointsBalance: c.points_balance || 0,
         preferredStaff: undefined, // Would need to join with staff table
         tags: c.tags || [],
       })));
@@ -101,7 +101,7 @@ export default function CustomersScreen() {
           email: c.email || undefined,
           totalVisits: c.total_visits || 0,
           lastVisitAt: c.last_visit_at || undefined,
-          pointsBalance: c.points || 0,
+          pointsBalance: c.points_balance || 0,
           preferredStaff: undefined,
           tags: c.tags || [],
         })));
@@ -170,7 +170,7 @@ export default function CustomersScreen() {
         first_name_kana: newCustomer.firstNameKana || null,
         phone: newCustomer.phone || null,
         email: newCustomer.email || null,
-        points: 0,
+        points_balance: 0,
         total_visits: 0,
         total_spent: 0,
         tags: [],

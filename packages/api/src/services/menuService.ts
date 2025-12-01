@@ -87,6 +87,24 @@ export const menuService = {
     return data || [];
   },
 
+  async getActive(companyId: string, storeId?: string): Promise<Menu[]> {
+    const supabase = getSupabaseClient();
+    let query = supabase
+      .from('menus')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+
+    if (storeId) {
+      query = query.or(`store_id.eq.${storeId},store_id.is.null`);
+    }
+
+    const { data, error } = await query.order('sort_order', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async getByCategory(categoryId: string): Promise<Menu[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

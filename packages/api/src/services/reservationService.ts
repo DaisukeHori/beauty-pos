@@ -286,4 +286,17 @@ export const reservationService = {
       .update({ reminder_sent_at: new Date().toISOString() })
       .eq('id', id);
   },
+
+  async noShow(id: string): Promise<Reservation> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('reservations')
+      .update({ status: 'no_show' })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };

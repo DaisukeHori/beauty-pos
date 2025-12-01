@@ -20,7 +20,6 @@ import {
   customerService,
   staffService,
   type VisitWithDetails,
-  type SaleInsert,
 } from '@beauty-pos/api';
 import { getSupabaseClient } from '@beauty-pos/api';
 
@@ -167,7 +166,7 @@ export default function CheckoutScreen() {
         })));
 
         // Load staff
-        const staffData = await staffService.getByStore(company.id, store.id);
+        const staffData = await staffService.getByStore(store.id);
         setStaffList(staffData.map(s => ({
           id: s.id,
           name: `${s.last_name} ${s.first_name}`,
@@ -186,7 +185,7 @@ export default function CheckoutScreen() {
                 id: visitData.customer.id,
                 name: `${visitData.customer.last_name} ${visitData.customer.first_name}`,
                 phone: visitData.customer.phone || '',
-                points: visitData.customer.points || 0,
+                points: visitData.customer.points_balance || 0,
               });
             }
           }
@@ -420,23 +419,24 @@ export default function CheckoutScreen() {
 
       if (calcError) throw calcError;
 
-      // Create sale
-      const saleData: SaleInsert = {
+      // Create sale record
+      const saleNumber = await saleService.generateSaleNumber(company.id);
+      const sale = await saleService.createSimple({
         company_id: company.id,
         store_id: store.id,
         customer_id: customer?.id || null,
         staff_id: staff?.id || null,
         visit_id: params.visitId || null,
+        sale_number: saleNumber,
+        sale_date: new Date().toISOString(),
         subtotal: calcResult.subtotal,
         discount_total: calcResult.discountTotal,
         tax_total: calcResult.tax10 + calcResult.tax8,
-        grand_total: calcResult.grandTotal,
+        total: calcResult.grandTotal,
         points_used: pointsToUse,
         points_earned: calcResult.pointsEarned || 0,
         status: 'completed',
-      };
-
-      const sale = await saleService.create(saleData);
+      });
 
       // Create sale items
       for (const item of cartItems) {
@@ -459,7 +459,7 @@ export default function CheckoutScreen() {
       for (const payment of payments) {
         await saleService.addPayment(sale.id, {
           sale_id: sale.id,
-          method: payment.method,
+          payment_method: payment.method,
           amount: payment.amount,
         });
       }
@@ -473,7 +473,7 @@ export default function CheckoutScreen() {
       // Note: total_spent is updated by the calculate-sale Edge Function
       if (customer?.id) {
         await customerService.update(customer.id, {
-          points: (customer.points - pointsToUse + (calcResult.pointsEarned || 0)),
+          points_balance: (customer.points - pointsToUse + (calcResult.pointsEarned || 0)),
           last_visit_at: new Date().toISOString(),
         });
       }
@@ -481,7 +481,7 @@ export default function CheckoutScreen() {
       // Set result for receipt
       setSaleResult({
         saleId: sale.id,
-        invoiceNumber: sale.invoice_number || '',
+        invoiceNumber: sale.sale_number || '',
         pointsEarned: calcResult.pointsEarned || 0,
       });
 

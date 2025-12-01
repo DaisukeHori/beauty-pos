@@ -545,4 +545,49 @@ export const saleService = {
     if (error) throw error;
     return data || [];
   },
+
+  // Add individual sale item
+  async addItem(saleId: string, item: InsertTables<'sale_items'>): Promise<SaleItem> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sale_items')
+      .insert({
+        ...item,
+        sale_id: saleId,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Add individual payment
+  async addPayment(saleId: string, payment: InsertTables<'sale_payments'>): Promise<SalePayment> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sale_payments')
+      .insert({
+        ...payment,
+        sale_id: saleId,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Simple create for single sale record (for checkout flow)
+  async createSimple(sale: InsertTables<'sales'>): Promise<Sale> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sales')
+      .insert(sale)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };

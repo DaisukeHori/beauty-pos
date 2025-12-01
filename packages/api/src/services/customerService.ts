@@ -27,7 +27,40 @@ export interface CustomerSearchParams {
 }
 
 export const customerService = {
-  async search(params: CustomerSearchParams): Promise<{ data: Customer[]; total: number }> {
+  // Simple search overload for backward compatibility
+  async search(companyIdOrParams: string | CustomerSearchParams, query?: string): Promise<Customer[]> {
+    // If first arg is string, use simple signature
+    if (typeof companyIdOrParams === 'string') {
+      return this.simpleSearch(companyIdOrParams, query || '');
+    }
+    // Otherwise use full params
+    const result = await this.searchWithPagination(companyIdOrParams);
+    return result.data;
+  },
+
+  async simpleSearch(companyId: string, query: string): Promise<Customer[]> {
+    const supabase = getSupabaseClient();
+    let queryBuilder = supabase
+      .from('customers')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+
+    if (query && query.length >= 2) {
+      queryBuilder = queryBuilder.or(
+        `last_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name_kana.ilike.%${query}%,first_name_kana.ilike.%${query}%,phone.ilike.%${query}%`
+      );
+    }
+
+    const { data, error } = await queryBuilder
+      .order('last_name', { ascending: true })
+      .limit(50);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async searchWithPagination(params: CustomerSearchParams): Promise<{ data: Customer[]; total: number }> {
     const supabase = getSupabaseClient();
     const { companyId, query, page = 1, limit = 20, sortBy = 'last_name', sortOrder = 'asc' } = params;
 
