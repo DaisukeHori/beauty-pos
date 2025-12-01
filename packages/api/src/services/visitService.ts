@@ -75,13 +75,13 @@ export const visitService = {
 
   async checkIn(visit: VisitInsert): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
       .insert({
         ...visit,
         status: 'checked_in',
         check_in_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -89,119 +89,131 @@ export const visitService = {
 
     // If there's a reservation, update its status
     if (visit.reservation_id) {
-      await supabase
-        .from('reservations')
-        .update({ status: 'checked_in' })
+      await (supabase
+        .from('reservations') as ReturnType<typeof supabase.from>)
+        .update({ status: 'checked_in' } as Record<string, unknown>)
         .eq('id', visit.reservation_id);
     }
 
-    return data;
+    return data as Visit;
   },
 
   async startService(id: string): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
       .update({
         status: 'in_service',
         service_start_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Visit;
   },
 
   async endService(id: string): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
       .update({
         service_end_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Visit;
   },
 
   async checkOut(id: string): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
       .update({
         status: 'completed',
         check_out_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
+    const visitData = data as Visit;
+
     // Update customer stats
-    if (data.customer_id) {
-      await supabase.rpc('increment_customer_visits', {
-        customer_id: data.customer_id,
-      }).catch(() => {
-        // If RPC doesn't exist, do it manually
-        return supabase
+    if (visitData.customer_id) {
+      try {
+        // Try RPC first
+        await (supabase.rpc as unknown as (fn: string, params: Record<string, unknown>) => Promise<unknown>)(
+          'increment_customer_visits',
+          { customer_id: visitData.customer_id }
+        );
+      } catch {
+        // If RPC doesn't exist, manually update the customer
+        const { data: customer } = await supabase
           .from('customers')
+          .select('total_visits')
+          .eq('id', visitData.customer_id)
+          .single() as { data: { total_visits?: number } | null; error: unknown };
+
+        await (supabase
+          .from('customers') as ReturnType<typeof supabase.from>)
           .update({
-            total_visits: supabase.rpc('increment', { value: 1 }) as unknown as number,
+            total_visits: (customer?.total_visits || 0) + 1,
             last_visit_at: new Date().toISOString(),
-          })
-          .eq('id', data.customer_id);
-      });
+          } as Record<string, unknown>)
+          .eq('id', visitData.customer_id);
+      }
     }
 
-    return data;
+    return visitData;
   },
 
   async cancel(id: string, reason?: string): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
       .update({
         status: 'cancelled',
         notes: reason,
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Visit;
   },
 
   async noShow(id: string): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
-      .update({ status: 'no_show' })
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
+      .update({ status: 'no_show' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Visit;
   },
 
   async update(id: string, updates: VisitUpdate): Promise<Visit> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('visits')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('visits') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Visit;
   },
 
   async getByCustomer(customerId: string, limit: number = 20): Promise<VisitWithDetails[]> {

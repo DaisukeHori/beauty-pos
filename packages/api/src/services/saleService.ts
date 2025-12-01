@@ -184,8 +184,8 @@ export const saleService = {
     const saleNumber = await this.generateSaleNumber(data.companyId);
 
     // Create sale
-    const { data: sale, error: saleError } = await supabase
-      .from('sales')
+    const { data: sale, error: saleError } = await (supabase
+      .from('sales') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: data.companyId,
         store_id: data.storeId,
@@ -202,11 +202,13 @@ export const saleService = {
         status: 'completed',
         notes: data.notes,
         created_by: data.createdBy,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (saleError) throw saleError;
+
+    const saleData = sale as Sale;
 
     // Create sale items
     for (const item of data.items) {
@@ -220,10 +222,10 @@ export const saleService = {
       const taxableAmount = itemSubtotal - itemDiscountAmount;
       const itemTaxAmount = Math.floor(taxableAmount * item.taxRate / 100);
 
-      const { data: saleItem, error: itemError } = await supabase
-        .from('sale_items')
+      const { data: saleItem, error: itemError } = await (supabase
+        .from('sale_items') as ReturnType<typeof supabase.from>)
         .insert({
-          sale_id: sale.id,
+          sale_id: saleData.id,
           item_type: item.itemType,
           item_id: item.itemId,
           name: item.name,
@@ -237,39 +239,41 @@ export const saleService = {
           subtotal: taxableAmount + itemTaxAmount,
           nomination_type: item.nominationType,
           nomination_fee: item.nominationFee || 0,
-        })
+        } as Record<string, unknown>)
         .select()
         .single();
 
       if (itemError) throw itemError;
 
+      const saleItemData = saleItem as SaleItem;
+
       // Create staff assignments
       for (const assignment of item.staffAssignments) {
         const salesAmount = Math.floor(itemSubtotal * assignment.salesRatio);
-        await supabase
-          .from('sale_item_staff_assignments')
+        await (supabase
+          .from('sale_item_staff_assignments') as ReturnType<typeof supabase.from>)
           .insert({
-            sale_item_id: saleItem.id,
+            sale_item_id: saleItemData.id,
             staff_id: assignment.staffId,
             role: assignment.role,
             sales_ratio: assignment.salesRatio,
             sales_amount: salesAmount,
-          });
+          } as Record<string, unknown>);
       }
 
       // Create process assignments
       for (const process of item.processAssignments || []) {
         const productivityAmount = Math.floor(itemSubtotal * process.productivityRatio);
-        await supabase
-          .from('sale_item_process_assignments')
+        await (supabase
+          .from('sale_item_process_assignments') as ReturnType<typeof supabase.from>)
           .insert({
-            sale_item_id: saleItem.id,
+            sale_item_id: saleItemData.id,
             process_id: process.processId,
             staff_id: process.staffId,
             productivity_ratio: process.productivityRatio,
             productivity_amount: productivityAmount,
             duration_minutes: process.durationMinutes,
-          });
+          } as Record<string, unknown>);
       }
 
       // Create item discounts
@@ -278,11 +282,11 @@ export const saleService = {
           ? Math.floor(itemSubtotal * discount.value / 100)
           : discount.value;
 
-        await supabase
-          .from('sale_discounts')
+        await (supabase
+          .from('sale_discounts') as ReturnType<typeof supabase.from>)
           .insert({
-            sale_id: sale.id,
-            sale_item_id: saleItem.id,
+            sale_id: saleData.id,
+            sale_item_id: saleItemData.id,
             discount_type: discount.discountType,
             discount_source: discount.discountSource,
             source_id: discount.sourceId,
@@ -290,20 +294,20 @@ export const saleService = {
             value: discount.value,
             value_type: discount.valueType,
             amount: discountAmount,
-          });
+          } as Record<string, unknown>);
       }
     }
 
     // Create payments
     for (const payment of data.payments) {
-      await supabase
-        .from('sale_payments')
+      await (supabase
+        .from('sale_payments') as ReturnType<typeof supabase.from>)
         .insert({
-          sale_id: sale.id,
+          sale_id: saleData.id,
           payment_method: payment.paymentMethod,
           amount: payment.amount,
           reference_number: payment.referenceNumber,
-        });
+        } as Record<string, unknown>);
     }
 
     // Create global discounts
@@ -312,10 +316,10 @@ export const saleService = {
         ? Math.floor(subtotal * discount.value / 100)
         : discount.value;
 
-      await supabase
-        .from('sale_discounts')
+      await (supabase
+        .from('sale_discounts') as ReturnType<typeof supabase.from>)
         .insert({
-          sale_id: sale.id,
+          sale_id: saleData.id,
           discount_type: discount.discountType,
           discount_source: discount.discountSource,
           source_id: discount.sourceId,
@@ -323,7 +327,7 @@ export const saleService = {
           value: discount.value,
           value_type: discount.valueType,
           amount: discountAmount,
-        });
+        } as Record<string, unknown>);
     }
 
     // Update customer points
@@ -332,51 +336,60 @@ export const saleService = {
         .from('customers')
         .select('points_balance')
         .eq('id', data.customerId)
-        .single();
+        .single() as { data: { points_balance?: number } | null; error: unknown };
 
       const currentBalance = customer?.points_balance || 0;
       const newBalance = currentBalance - pointsUsed + pointsEarned;
 
-      await supabase
+      // Get current total_spend
+      const { data: customerSpend } = await supabase
         .from('customers')
+        .select('total_spend')
+        .eq('id', data.customerId)
+        .single() as { data: { total_spend?: number } | null; error: unknown };
+
+      const currentTotalSpend = customerSpend?.total_spend || 0;
+
+      await (supabase
+        .from('customers') as ReturnType<typeof supabase.from>)
         .update({
           points_balance: newBalance,
-          total_spend: supabase.rpc('increment', { value: total }) as unknown as number,
-        })
+          total_spend: currentTotalSpend + total,
+        } as Record<string, unknown>)
         .eq('id', data.customerId);
 
       // Record point transactions
       if (pointsUsed > 0) {
-        await supabase
-          .from('point_transactions')
+        await (supabase
+          .from('point_transactions') as ReturnType<typeof supabase.from>)
           .insert({
             company_id: data.companyId,
             customer_id: data.customerId,
-            sale_id: sale.id,
+            sale_id: saleData.id,
             transaction_type: 'used',
             points: -pointsUsed,
             balance_after: currentBalance - pointsUsed,
             description: `会計利用 (${saleNumber})`,
-          });
+          } as Record<string, unknown>);
       }
 
       if (pointsEarned > 0) {
-        await supabase
-          .from('point_transactions')
+        await (supabase
+          .from('point_transactions') as ReturnType<typeof supabase.from>)
           .insert({
             company_id: data.companyId,
             customer_id: data.customerId,
-            sale_id: sale.id,
+            sale_id: saleData.id,
             transaction_type: 'earned',
             points: pointsEarned,
             balance_after: newBalance,
             description: `会計付与 (${saleNumber})`,
-          });
+          } as Record<string, unknown>);
       }
     }
 
     // Return the complete sale
-    return this.getById(sale.id) as Promise<SaleWithDetails>;
+    return this.getById(saleData.id) as Promise<SaleWithDetails>;
   },
 
   async void(id: string, reason: string, voidedBy: string): Promise<Sale> {
@@ -387,14 +400,14 @@ export const saleService = {
     if (!sale) throw new Error('Sale not found');
 
     // Void the sale
-    const { data, error } = await supabase
-      .from('sales')
+    const { data, error } = await (supabase
+      .from('sales') as ReturnType<typeof supabase.from>)
       .update({
         status: 'voided',
         voided_at: new Date().toISOString(),
         voided_by: voidedBy,
         void_reason: reason,
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
@@ -407,23 +420,25 @@ export const saleService = {
         .from('customers')
         .select('points_balance, total_spend')
         .eq('id', sale.customer_id)
-        .single();
+        .single() as { data: { points_balance?: number; total_spend?: number } | null; error: unknown };
 
       if (customer) {
         // Add back used points, subtract earned points
-        const newBalance = customer.points_balance + sale.points_used - sale.points_earned;
+        const currentBalance = customer.points_balance || 0;
+        const currentTotalSpend = customer.total_spend || 0;
+        const newBalance = currentBalance + sale.points_used - sale.points_earned;
 
-        await supabase
-          .from('customers')
+        await (supabase
+          .from('customers') as ReturnType<typeof supabase.from>)
           .update({
             points_balance: newBalance,
-            total_spend: customer.total_spend - sale.total,
-          })
+            total_spend: currentTotalSpend - sale.total,
+          } as Record<string, unknown>)
           .eq('id', sale.customer_id);
 
         // Record point transaction for void
-        await supabase
-          .from('point_transactions')
+        await (supabase
+          .from('point_transactions') as ReturnType<typeof supabase.from>)
           .insert({
             company_id: sale.company_id,
             customer_id: sale.customer_id,
@@ -432,11 +447,11 @@ export const saleService = {
             points: sale.points_used - sale.points_earned,
             balance_after: newBalance,
             description: `取消 (${sale.sale_number})`,
-          });
+          } as Record<string, unknown>);
       }
     }
 
-    return data;
+    return data as Sale;
   },
 
   async generateSaleNumber(companyId: string): Promise<string> {
@@ -485,7 +500,7 @@ export const saleService = {
       .eq('store_id', storeId)
       .eq('status', 'completed')
       .gte('sale_date', `${date}T00:00:00`)
-      .lte('sale_date', `${date}T23:59:59`);
+      .lte('sale_date', `${date}T23:59:59`) as { data: { total: number }[] | null; error: unknown };
 
     if (error) throw error;
     return data?.reduce((sum, s) => sum + s.total, 0) || 0;
@@ -600,45 +615,45 @@ export const saleService = {
   // Add individual sale item
   async addItem(saleId: string, item: InsertTables<'sale_items'>): Promise<SaleItem> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('sale_items')
+    const { data, error } = await (supabase
+      .from('sale_items') as ReturnType<typeof supabase.from>)
       .insert({
         ...item,
         sale_id: saleId,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as SaleItem;
   },
 
   // Add individual payment
   async addPayment(saleId: string, payment: InsertTables<'sale_payments'>): Promise<SalePayment> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('sale_payments')
+    const { data, error } = await (supabase
+      .from('sale_payments') as ReturnType<typeof supabase.from>)
       .insert({
         ...payment,
         sale_id: saleId,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as SalePayment;
   },
 
   // Simple create for single sale record (for checkout flow)
   async createSimple(sale: InsertTables<'sales'>): Promise<Sale> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('sales')
-      .insert(sale)
+    const { data, error } = await (supabase
+      .from('sales') as ReturnType<typeof supabase.from>)
+      .insert(sale as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Sale;
   },
 };

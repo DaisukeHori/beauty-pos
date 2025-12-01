@@ -105,69 +105,69 @@ export const reservationService = {
 
   async create(reservation: ReservationInsert): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
-      .insert(reservation)
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .insert(reservation as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 
   async update(id: string, updates: ReservationUpdate): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 
   async cancel(id: string, reason?: string): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
       .update({
         status: 'cancelled',
         notes: reason,
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 
   async confirm(id: string): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
-      .update({ status: 'confirmed' })
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update({ status: 'confirmed' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 
   async checkIn(id: string): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
-      .update({ status: 'checked_in' })
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update({ status: 'checked_in' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 
   async getAvailableSlots(
@@ -184,9 +184,9 @@ export const reservationService = {
       .from('stores')
       .select('business_hours')
       .eq('id', storeId)
-      .single();
+      .single() as { data: { business_hours?: Record<string, { open: string; close: string }> } | null; error: unknown };
 
-    const businessHours = store?.business_hours as Record<string, { open: string; close: string }> | undefined;
+    const businessHours = store?.business_hours;
     const dayOfWeek = new Date(date).getDay();
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayConfig = businessHours?.[dayNames[dayOfWeek]];
@@ -202,7 +202,7 @@ export const reservationService = {
         .eq('staff_id', staffId)
         .eq('date', date)
         .eq('status', 'scheduled')
-        .single();
+        .single() as { data: { start_time: string; end_time: string; break_minutes: number } | null; error: unknown };
       staffShift = shift;
     }
 
@@ -220,7 +220,7 @@ export const reservationService = {
       query = query.eq('staff_id', staffId);
     }
 
-    const { data: reservations } = await query;
+    const { data: reservations } = await query as { data: { start_time: string; end_time: string; staff_id: string }[] | null; error: unknown };
 
     // Generate available time slots
     const slots: TimeSlot[] = [];
@@ -316,22 +316,22 @@ export const reservationService = {
 
   async sendReminder(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase
-      .from('reservations')
-      .update({ reminder_sent_at: new Date().toISOString() })
+    await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update({ reminder_sent_at: new Date().toISOString() } as Record<string, unknown>)
       .eq('id', id);
   },
 
   async noShow(id: string): Promise<Reservation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
-      .update({ status: 'no_show' })
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update({ status: 'no_show' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Reservation;
   },
 };
