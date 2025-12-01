@@ -69,6 +69,33 @@ export default function SettingsScreen() {
     },
   ];
 
+  const adminSettings: SettingItem[] = [
+    {
+      label: '店舗設定',
+      icon: '🏪',
+      onPress: () => router.push('/admin/store'),
+      showArrow: true,
+    },
+    {
+      label: 'メニュー管理',
+      icon: '📋',
+      onPress: () => router.push('/admin/menus'),
+      showArrow: true,
+    },
+    {
+      label: '商品管理',
+      icon: '📦',
+      onPress: () => router.push('/admin/products'),
+      showArrow: true,
+    },
+    {
+      label: 'スタッフ管理',
+      icon: '👥',
+      onPress: () => router.push('/admin/staff'),
+      showArrow: true,
+    },
+  ];
+
   const appSettings: SettingItem[] = [
     {
       label: 'ダークモード',
@@ -188,6 +215,16 @@ export default function SettingsScreen() {
         <Card variant="outlined" size="md">
           {accountSettings.map((item, index) =>
             renderSettingItem(item, index, index === accountSettings.length - 1)
+          )}
+        </Card>
+      </View>
+
+      {/* Admin Settings */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>管理</Text>
+        <Card variant="outlined" size="md">
+          {adminSettings.map((item, index) =>
+            renderSettingItem(item, index, index === adminSettings.length - 1)
           )}
         </Card>
       </View>
