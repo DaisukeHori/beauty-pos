@@ -137,3 +137,9 @@ export type {
   StyleProposalWithDetails,
   CreateProposalData,
 } from './proposalService';
+
+export { pointService } from './pointService';
+export type {
+  PointTransaction,
+  PointTransactionInsert,
+} from './pointService';

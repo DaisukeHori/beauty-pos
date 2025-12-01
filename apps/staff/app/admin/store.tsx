@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   Switch,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Card, Button, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import * as ImagePicker from 'expo-image-picker';
+import { Card, Button, colors, spacing, textStyles, borderRadius } from '@beauty-pos/ui';
+import { useAuthStore, useUIStore } from '@beauty-pos/core';
+import { storeService, companyService } from '@beauty-pos/api';
 
 interface StoreSettings {
   // 基本情報
@@ -39,16 +43,16 @@ interface StoreSettings {
   paperWidth: 80 | 58;
 }
 
-const mockStoreSettings: StoreSettings = {
-  name: 'Beauty Salon SAKURA',
-  postalCode: '150-0001',
-  address: '東京都渋谷区神宮前1-2-3 サクラビル2F',
-  phone: '03-1234-5678',
-  email: 'info@sakura-salon.jp',
-  businessHours: '10:00〜20:00',
-  closedDays: '毎週火曜日',
+const defaultSettings: StoreSettings = {
+  name: '',
+  postalCode: '',
+  address: '',
+  phone: '',
+  email: '',
+  businessHours: '',
+  closedDays: '',
   logoUrl: '',
-  invoiceRegistrationNumber: 'T1234567890123',
+  invoiceRegistrationNumber: '',
   receiptHeader: '',
   receiptFooter: 'またのご来店をお待ちしております',
   receiptNote: '',
@@ -59,9 +63,63 @@ const mockStoreSettings: StoreSettings = {
 };
 
 export default function StoreManagementScreen() {
-  const [settings, setSettings] = useState<StoreSettings>(mockStoreSettings);
+  const { store, company } = useAuthStore();
+  const { showToast } = useUIStore();
+  const [settings, setSettings] = useState<StoreSettings>(defaultSettings);
   const [activeTab, setActiveTab] = useState<'basic' | 'receipt' | 'invoice'>('basic');
   const [hasChanges, setHasChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load store and company settings
+  const loadSettings = useCallback(async () => {
+    if (!store?.id || !company?.id) return;
+
+    try {
+      setIsLoading(true);
+      const [storeData, companyData] = await Promise.all([
+        storeService.getById(store.id),
+        companyService.getById(company.id),
+      ]);
+
+      if (storeData && companyData) {
+        const storeSettings = (storeData.settings || {}) as Record<string, unknown>;
+        const companySettings = (companyData.settings || {}) as Record<string, unknown>;
+
+        setSettings({
+          name: storeData.name || '',
+          postalCode: storeData.postal_code || '',
+          address: storeData.address || '',
+          phone: storeData.phone || '',
+          email: storeData.email || '',
+          businessHours: typeof storeData.business_hours === 'string'
+            ? storeData.business_hours
+            : (storeData.business_hours as Record<string, unknown>)?.display as string || '',
+          closedDays: Array.isArray(storeData.holidays)
+            ? (storeData.holidays as string[]).join(', ')
+            : '',
+          logoUrl: companyData.logo_url || '',
+          invoiceRegistrationNumber: (companySettings.invoice_registration_number as string) || '',
+          receiptHeader: (storeSettings.receipt_header as string) || '',
+          receiptFooter: (storeSettings.receipt_footer as string) || 'またのご来店をお待ちしております',
+          receiptNote: (storeSettings.receipt_note as string) || '',
+          showLogo: (storeSettings.show_logo as boolean) ?? true,
+          showBarcode: (storeSettings.show_barcode as boolean) ?? true,
+          showQrCode: (storeSettings.show_qr_code as boolean) ?? false,
+          paperWidth: (storeSettings.paper_width as 80 | 58) || 80,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load store settings:', error);
+      showToast('設定の読み込みに失敗しました', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [store?.id, company?.id, showToast]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   const updateSetting = <K extends keyof StoreSettings>(
     key: K,
@@ -71,10 +129,45 @@ export default function StoreManagementScreen() {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    // TODO: API call to save settings
-    Alert.alert('保存完了', '店舗設定を保存しました');
-    setHasChanges(false);
+  const handleSave = async () => {
+    if (!store?.id || !company?.id) return;
+
+    try {
+      setIsSaving(true);
+
+      // Update store basic info
+      await storeService.update(store.id, {
+        name: settings.name,
+        postal_code: settings.postalCode || null,
+        address: settings.address || null,
+        phone: settings.phone || null,
+        email: settings.email || null,
+        business_hours: { display: settings.businessHours },
+        holidays: settings.closedDays.split(',').map(s => s.trim()).filter(Boolean),
+        settings: {
+          receipt_header: settings.receiptHeader,
+          receipt_footer: settings.receiptFooter,
+          receipt_note: settings.receiptNote,
+          show_logo: settings.showLogo,
+          show_barcode: settings.showBarcode,
+          show_qr_code: settings.showQrCode,
+          paper_width: settings.paperWidth,
+        },
+      });
+
+      // Update company settings (invoice registration number)
+      await companyService.updateSettings(company.id, {
+        invoice_registration_number: settings.invoiceRegistrationNumber,
+      });
+
+      showToast('店舗設定を保存しました', 'success');
+      setHasChanges(false);
+    } catch (error) {
+      console.error('Failed to save store settings:', error);
+      showToast('設定の保存に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -91,6 +184,42 @@ export default function StoreManagementScreen() {
       router.back();
     }
   };
+
+  const handleLogoUpload = async () => {
+    if (!company?.id) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [2, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const file = new File([blob], 'logo.jpg', { type: 'image/jpeg' });
+
+        const logoUrl = await companyService.uploadLogo(company.id, file);
+        updateSetting('logoUrl', logoUrl);
+        showToast('ロゴをアップロードしました', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to upload logo:', error);
+      showToast('ロゴのアップロードに失敗しました', 'error');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
 
   const renderBasicInfo = () => (
     <View style={styles.tabContent}>
@@ -204,7 +333,7 @@ export default function StoreManagementScreen() {
             </View>
           )}
           <View style={styles.logoButtons}>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onPress={handleLogoUpload}>
               画像をアップロード
             </Button>
             {settings.logoUrl && (
@@ -424,18 +553,22 @@ export default function StoreManagementScreen() {
         <Text style={styles.headerTitle}>店舗設定</Text>
         <TouchableOpacity
           onPress={handleSave}
-          style={[styles.headerButton, !hasChanges && styles.headerButtonDisabled]}
-          disabled={!hasChanges}
+          style={[styles.headerButton, (!hasChanges || isSaving) && styles.headerButtonDisabled]}
+          disabled={!hasChanges || isSaving}
         >
-          <Text
-            style={[
-              styles.headerButtonText,
-              styles.headerButtonTextPrimary,
-              !hasChanges && styles.headerButtonTextDisabled,
-            ]}
-          >
-            保存
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={colors.primary[600]} />
+          ) : (
+            <Text
+              style={[
+                styles.headerButtonText,
+                styles.headerButtonTextPrimary,
+                !hasChanges && styles.headerButtonTextDisabled,
+              ]}
+            >
+              保存
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -489,6 +622,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.neutral[50],
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[600],
+    marginTop: spacing[2],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -501,6 +645,8 @@ const styles = StyleSheet.create({
   headerButton: {
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[1],
+    minWidth: 80,
+    alignItems: 'center',
   },
   headerButtonDisabled: {
     opacity: 0.5,

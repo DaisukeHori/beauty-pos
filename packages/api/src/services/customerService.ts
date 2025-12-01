@@ -401,4 +401,88 @@ export const customerService = {
     const nextNumber = (count || 0) + 1;
     return `C${String(nextNumber).padStart(6, '0')}`;
   },
+
+  // Update customer stats after a sale
+  async updateStats(customerId: string, saleAmount: number): Promise<Customer> {
+    const supabase = getSupabaseClient();
+
+    // Get current stats
+    const { data: customer, error: getError } = await supabase
+      .from('customers')
+      .select('total_visits, total_spent')
+      .eq('id', customerId)
+      .single();
+
+    if (getError) throw getError;
+
+    // Update stats
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        total_visits: (customer?.total_visits || 0) + 1,
+        total_spent: (customer?.total_spent || 0) + saleAmount,
+        last_visit_at: new Date().toISOString(),
+      })
+      .eq('id', customerId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Increment visit count only
+  async incrementVisits(customerId: string): Promise<Customer> {
+    const supabase = getSupabaseClient();
+
+    // Get current visit count
+    const { data: customer, error: getError } = await supabase
+      .from('customers')
+      .select('total_visits')
+      .eq('id', customerId)
+      .single();
+
+    if (getError) throw getError;
+
+    // Update visit count
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        total_visits: (customer?.total_visits || 0) + 1,
+        last_visit_at: new Date().toISOString(),
+      })
+      .eq('id', customerId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Add to total spent only
+  async addSpent(customerId: string, amount: number): Promise<Customer> {
+    const supabase = getSupabaseClient();
+
+    // Get current total spent
+    const { data: customer, error: getError } = await supabase
+      .from('customers')
+      .select('total_spent')
+      .eq('id', customerId)
+      .single();
+
+    if (getError) throw getError;
+
+    // Update total spent
+    const { data, error } = await supabase
+      .from('customers')
+      .update({
+        total_spent: (customer?.total_spent || 0) + amount,
+      })
+      .eq('id', customerId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };

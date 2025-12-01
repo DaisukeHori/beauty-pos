@@ -94,6 +94,24 @@ export default function SettingsScreen() {
       onPress: () => router.push('/admin/staff'),
       showArrow: true,
     },
+    {
+      label: 'クーポン管理',
+      icon: '🎟️',
+      onPress: () => router.push('/admin/coupons'),
+      showArrow: true,
+    },
+    {
+      label: '回数券管理',
+      icon: '🎫',
+      onPress: () => router.push('/admin/tickets'),
+      showArrow: true,
+    },
+    {
+      label: '売上レポート',
+      icon: '📊',
+      onPress: () => router.push('/admin/reports'),
+      showArrow: true,
+    },
   ];
 
   const appSettings: SettingItem[] = [
