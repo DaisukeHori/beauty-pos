@@ -288,7 +288,7 @@ describe('isValidJapanesePostalCode', () => {
 describe('maskSensitiveData', () => {
   it('should mask data with last 4 chars visible', () => {
     expect(maskSensitiveData('1234567890')).toBe('******7890');
-    expect(maskSensitiveData('password123')).toBe('*******123');
+    expect(maskSensitiveData('password123')).toBe('*******d123'); // 11 chars: 7 masked + 4 visible
   });
 
   it('should handle short strings', () => {

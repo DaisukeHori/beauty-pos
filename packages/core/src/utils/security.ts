@@ -265,17 +265,17 @@ export function generateCSRFToken(): string {
  * Timing-safe string comparison to prevent timing attacks
  */
 export function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Still compare to prevent length-based timing attacks
-    b = a;
-  }
+  const lengthsMatch = a.length === b.length;
+
+  // Use the longer string length to prevent timing attacks based on length
+  const compareString = lengthsMatch ? b : a;
 
   let result = 0;
   for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    result |= a.charCodeAt(i) ^ compareString.charCodeAt(i);
   }
 
-  return result === 0 && a.length === b.length;
+  return result === 0 && lengthsMatch;
 }
 
 /**
