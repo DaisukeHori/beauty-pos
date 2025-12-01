@@ -470,10 +470,10 @@ export default function CheckoutScreen() {
       }
 
       // Update customer points if applicable
+      // Note: total_spent is updated by the calculate-sale Edge Function
       if (customer?.id) {
         await customerService.update(customer.id, {
           points: (customer.points - pointsToUse + (calcResult.pointsEarned || 0)),
-          total_spent: customer.points + calcResult.grandTotal, // This should be accumulated
           last_visit_at: new Date().toISOString(),
         });
       }
