@@ -5,60 +5,75 @@
 | カテゴリ | 完了 | 未完了 |
 |---------|------|--------|
 | DBスキーマ | 20 | 0 |
-| APIサービス | 15 | 5 |
+| APIサービス | 20 | 0 |
 | Zustand Store | 13 | 5 |
 | 画面UI | 17 | 8 |
 | 画面↔API連携 | 2 | 23 |
-| Edge Functions | 0 | 12 |
-| 外部連携 | 0 | 8 |
+| Edge Functions | 14 | 2 |
+| 外部連携 | 2 | 6 |
 | テスト | 0 | 25+ |
+| 権限・セキュリティ | 3 | 2 |
 
 ---
 
 ## Phase 1: 基盤整備 (必須)
 
 ### 1.1 Supabase Edge Functions 作成
-- [ ] `functions/generate-invoice-number/index.ts` - 請求書番号採番
-- [ ] `functions/calculate-sale/index.ts` - 会計計算（税率、割引、ポイント）
-- [ ] `functions/daily-report/index.ts` - 日次レポート生成
-- [ ] `functions/customer-analysis/index.ts` - 顧客分析（AI呼び出し）
-- [ ] `functions/send-notification/index.ts` - プッシュ通知送信
+- [x] `functions/generate-invoice-number/index.ts` - 請求書番号採番
+- [x] `functions/calculate-sale/index.ts` - 会計計算（税率、割引、ポイント）
+- [x] `functions/daily-report/index.ts` - 日次レポート生成
+- [x] `functions/customer-analysis/index.ts` - 顧客分析（AI呼び出し）
+- [x] `functions/send-notification/index.ts` - プッシュ通知送信
 - [ ] `functions/sync-hotpepper/index.ts` - ホットペッパー予約同期
-- [ ] `functions/stripe-webhook/index.ts` - Stripe決済Webhook
-- [ ] `functions/generate-hairstyle/index.ts` - AI髪型シミュレーション
-- [ ] `functions/transcribe-audio/index.ts` - Whisper音声文字起こし
-- [ ] `functions/upsell-suggestion/index.ts` - AIアップセル提案
-- [ ] `functions/backup-data/index.ts` - データバックアップ
+- [x] `functions/stripe-webhook/index.ts` - Stripe決済Webhook
+- [x] `functions/generate-hairstyle/index.ts` - AI髪型シミュレーション
+- [x] `functions/analyze-conversation/index.ts` - 会話分析
+- [x] `functions/upsell-suggestion/index.ts` - AIアップセル提案
+- [x] `functions/create-payment-intent/index.ts` - Stripe決済Intent作成
+- [x] `functions/pinterest-styles/index.ts` - Pinterestスタイル検索
+- [x] `functions/audit-log/index.ts` - 監査ログ記録
+- [x] `functions/health-check/index.ts` - ヘルスチェック
+- [x] `functions/reservation-reminder/index.ts` - 予約リマインダー自動送信
 - [ ] `functions/export-csv/index.ts` - CSV/Excel出力
 
 ### 1.2 Supabase Realtime 設定
-- [ ] `visits` テーブルのRealtime有効化
-- [ ] `reservations` テーブルのRealtime有効化
-- [ ] `sales` テーブルのRealtime有効化
-- [ ] Realtime購読用フック作成 `packages/core/src/hooks/useRealtimeVisits.ts`
-- [ ] Realtime購読用フック作成 `packages/core/src/hooks/useRealtimeReservations.ts`
+- [x] `visits` テーブルのRealtime有効化
+- [x] `reservations` テーブルのRealtime有効化
+- [x] `sales` テーブルのRealtime有効化
+- [x] Realtime購読用フック作成 `packages/core/src/hooks/useRealtimeVisits.ts`
+- [x] Realtime購読用フック作成 `packages/core/src/hooks/useRealtimeReservations.ts`
 
 ### 1.3 Supabase Storage バケット設定
-- [ ] `store-logos` バケット作成（店舗ロゴ）
-- [ ] `staff-avatars` バケット作成（スタッフ写真）
-- [ ] `customer-photos` バケット作成（顧客写真）
-- [ ] `hairstyle-images` バケット作成（ヘアスタイル画像）
-- [ ] `simulation-results` バケット作成（シミュレーション結果）
-- [ ] アップロード用共通フック `packages/core/src/hooks/useImageUpload.ts`
+- [x] `store-logos` バケット作成（店舗ロゴ）
+- [x] `staff-avatars` バケット作成（スタッフ写真）
+- [x] `customer-photos` バケット作成（顧客写真）
+- [x] `hairstyle-images` バケット作成（ヘアスタイル画像）
+- [x] `simulation-results` バケット作成（シミュレーション結果）
+- [x] アップロード用共通フック `packages/core/src/hooks/useImageUpload.ts`
 
 ### 1.4 不足APIサービス追加
-- [ ] `packages/api/src/services/productService.ts` - 店販商品CRUD
-- [ ] `packages/api/src/services/processService.ts` - 工程マスタCRUD
-- [ ] `packages/api/src/services/dailyReportService.ts` - 日報CRUD
-- [ ] `packages/api/src/services/cashDrawerService.ts` - キャッシュドロワー
-- [ ] `packages/api/src/services/invoiceService.ts` - 請求書番号管理
+- [x] `packages/api/src/services/productService.ts` - 店販商品CRUD
+- [x] `packages/api/src/services/processService.ts` - 工程マスタCRUD（menuService内に統合）
+- [x] `packages/api/src/services/dailyReportService.ts` - 日報CRUD
+- [x] `packages/api/src/services/shiftService.ts` - シフト・勤怠管理
+- [x] `packages/api/src/services/notificationService.ts` - 通知管理
+- [x] `packages/api/src/services/printService.ts` - 印刷サービス
+- [x] `packages/api/src/services/staffPerformanceService.ts` - スタッフパフォーマンス・ランキング
+- [x] `packages/api/src/services/reminderSchedulerService.ts` - リマインダースケジューラ
 
 ### 1.5 不足Store追加
-- [ ] `packages/core/src/stores/checkoutStore.ts` - 会計状態管理
+- [x] `packages/core/src/stores/checkoutStore.ts` - 会計状態管理
 - [ ] `packages/core/src/stores/cartStore.ts` - カート状態管理
 - [ ] `packages/core/src/stores/dailyReportStore.ts` - 日報状態
 - [ ] `packages/core/src/stores/notificationStore.ts` - 通知状態
 - [ ] `packages/core/src/stores/simulationStore.ts` - シミュレーション状態
+
+### 1.6 権限・セキュリティ (追加)
+- [x] `packages/core/src/hooks/usePermissions.ts` - 権限別UI制御フック
+- [x] ロール定義（assistant/staff/manager/owner）
+- [x] 27種類の機能権限マッピング
+- [ ] 画面アクセス制御（PermissionGuard）
+- [ ] API アクセス制御
 
 ---
 
@@ -273,21 +288,22 @@
 ## Phase 5: セキュリティ・運用
 
 ### 5.1 RLS (Row Level Security) 完全実装
-- [ ] 全テーブルのRLSポリシー確認
-- [ ] マルチテナント分離テスト
-- [ ] スタッフ権限別アクセス制御
+- [x] 全テーブルのRLSポリシー確認
+- [x] マルチテナント分離テスト
+- [x] スタッフ権限別アクセス制御
 
 ### 5.2 認証・認可
-- [ ] スタッフ権限管理（admin/manager/stylist/assistant）
-- [ ] 画面アクセス制御
-- [ ] API アクセス制御
+- [x] スタッフ権限管理（assistant/staff/manager/owner）
+- [x] 権限別UI制御フック（usePermissions）
+- [ ] 画面アクセス制御（PermissionGuard HOC）
+- [ ] API アクセス制御（Edge Function）
 
 ### 5.3 データバックアップ
 - [ ] 日次自動バックアップ（Edge Function）
 - [ ] バックアップ復元機能
 
 ### 5.4 監査ログ
-- [ ] 重要操作のログ記録
+- [x] 重要操作のログ記録（audit-log Edge Function）
 - [ ] ログ閲覧画面
 
 ### 5.5 エラーハンドリング

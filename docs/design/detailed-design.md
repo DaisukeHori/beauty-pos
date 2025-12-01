@@ -1427,6 +1427,189 @@ export interface TagHierarchyNode {
 
 R: Read, W: Write
 
+### 7.4 フロントエンド権限制御 (usePermissions)
+
+```typescript
+// packages/core/src/hooks/usePermissions.ts
+
+// ロール階層
+export type StaffRole = 'assistant' | 'staff' | 'manager' | 'owner';
+
+// ロールレベル（数値が大きいほど権限が高い）
+const ROLE_LEVELS = {
+  assistant: 0,
+  staff: 1,
+  manager: 2,
+  owner: 3,
+};
+
+// 機能権限 (27種類)
+interface FeaturePermissions {
+  // 顧客管理
+  viewCustomers: boolean;
+  editCustomers: boolean;
+  deleteCustomers: boolean;
+
+  // 予約管理
+  viewReservations: boolean;
+  createReservations: boolean;
+  editReservations: boolean;
+  cancelReservations: boolean;
+
+  // 会計
+  processCheckout: boolean;
+  applyDiscounts: boolean;
+  processRefunds: boolean;
+  viewSalesHistory: boolean;
+
+  // 在庫
+  viewProducts: boolean;
+  editProducts: boolean;
+  adjustStock: boolean;
+
+  // スタッフ管理
+  viewStaff: boolean;
+  editStaff: boolean;
+  manageShifts: boolean;
+  viewAllAttendance: boolean;
+
+  // レポート
+  viewBasicReports: boolean;
+  viewDetailedReports: boolean;
+  exportReports: boolean;
+
+  // 設定
+  viewStoreSettings: boolean;
+  editStoreSettings: boolean;
+  manageMenus: boolean;
+  manageCoupons: boolean;
+  manageTickets: boolean;
+
+  // 管理
+  accessAdminPanel: boolean;
+  manageCompanySettings: boolean;
+  viewAuditLogs: boolean;
+}
+
+// 使用例
+const { hasPermission, hasMinRole, isManager } = usePermissions();
+if (hasPermission('processRefunds')) { /* 返金処理可能 */ }
+if (hasMinRole('manager')) { /* マネージャー以上 */ }
+```
+
+---
+
+## 8. 追加実装済み機能
+
+### 8.1 スタッフパフォーマンスサービス
+
+```typescript
+// packages/api/src/services/staffPerformanceService.ts
+
+interface StaffPerformance {
+  staffId: string;
+  staffName: string;
+  totalSales: number;      // 総売上
+  saleCount: number;       // 売上件数
+  nominationCount: number; // 指名数
+  nominationRevenue: number; // 指名料収入
+  customerCount: number;   // 担当顧客数
+  averageSale: number;     // 平均客単価
+  productSales: number;    // 商品売上
+  menuSales: number;       // メニュー売上
+}
+
+// 主要API
+staffPerformanceService.getPerformance(storeId, startDate, endDate);
+staffPerformanceService.getSalesRanking(storeId, startDate, endDate, limit);
+staffPerformanceService.getNominationRanking(storeId, startDate, endDate, limit);
+staffPerformanceService.getCustomerRanking(storeId, startDate, endDate, limit);
+staffPerformanceService.getMonthlySummary(staffId, year, month);
+staffPerformanceService.calculateIncentive(staffId, startDate, endDate, rates);
+staffPerformanceService.getDailyPerformance(storeId, date);
+```
+
+### 8.2 予約リマインダー自動送信
+
+```typescript
+// supabase/functions/reservation-reminder/index.ts
+// Cron Jobまたは手動トリガーで実行
+
+// リクエスト
+interface ReminderRequest {
+  reminderHours?: number;  // 何時間前に送信（デフォルト: 24）
+  dryRun?: boolean;        // テスト実行（実際には送信しない）
+}
+
+// レスポンス
+interface ReminderResponse {
+  success: boolean;
+  processedCount: number;
+  successCount: number;
+  failCount: number;
+  pushCount: number;       // プッシュ通知送信数
+  results: ReminderResult[];
+}
+
+// packages/api/src/services/reminderSchedulerService.ts
+reminderSchedulerService.getStats(companyId);             // 統計情報
+reminderSchedulerService.getUpcomingReminders(companyId); // 送信待ちリスト
+reminderSchedulerService.sendReminder(reservationId);     // 手動送信
+reminderSchedulerService.sendBatchReminders(companyId);   // 一括送信
+reminderSchedulerService.triggerScheduledReminders();     // Edge Function呼び出し
+```
+
+### 8.3 ポイント設定・有効期限管理
+
+```typescript
+// packages/api/src/services/pointService.ts
+
+interface PointSettings {
+  pointRate: number;      // ポイント付与率（例: 0.01 = 1%）
+  expiryMonths: number;   // 有効期限月数（0 = 無期限）
+  minRedeemPoints: number; // 最低利用ポイント
+  pointValue: number;     // 1ポイントの価値（円）
+}
+
+// 主要API
+pointService.getSettings(companyId);
+pointService.updateSettings(companyId, settings);
+pointService.calculatePoints(companyId, amount);
+pointService.calculateExpiryDate(companyId);
+pointService.earnPoints(companyId, customerId, points, saleId, description);
+// → 有効期限は自動計算
+```
+
+### 8.4 予約枠のシフト連動
+
+```typescript
+// packages/api/src/services/reservationService.ts
+
+// getAvailableSlots() の動作
+// 1. 店舗の営業時間を取得
+// 2. スタッフのシフトを取得（staffIdが指定された場合）
+// 3. シフト時間内かつ営業時間内のスロットのみ生成
+// 4. 休憩時間のスロットを除外
+// 5. 既存予約とのコンフリクトをチェック
+
+interface TimeSlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+  staffId?: string;
+}
+
+// シフト情報
+interface StaffShift {
+  start_time: string;   // "09:00:00"
+  end_time: string;     // "18:00:00"
+  break_minutes: number; // 60
+}
+
+// 休憩時間はシフトの中間に配置
+// 例: 9:00-18:00シフト、60分休憩 → 13:00-14:00が休憩
+```
+
 ---
 
 **以上**
