@@ -14,6 +14,17 @@ type ExportType =
   | 'inventory'
   | 'visits'
   | 'points'
+  // マスターデータ
+  | 'products'
+  | 'menus'
+  | 'menu_categories'
+  | 'staff'
+  | 'tags'
+  | 'coupons'
+  | 'materials'
+  | 'processes'
+  // 取引データ（詳細）
+  | 'sale_items'
 
 interface ExportRequest {
   type: ExportType
@@ -124,6 +135,43 @@ Deno.serve(async (req: Request) => {
           startDate,
           endDate
         ))
+        break
+
+      // マスターデータエクスポート
+      case 'products':
+        ;({ data, headers, filename } = await exportProducts(supabase, companyId, storeId))
+        break
+
+      case 'menus':
+        ;({ data, headers, filename } = await exportMenus(supabase, companyId))
+        break
+
+      case 'menu_categories':
+        ;({ data, headers, filename } = await exportMenuCategories(supabase, companyId))
+        break
+
+      case 'staff':
+        ;({ data, headers, filename } = await exportStaff(supabase, companyId))
+        break
+
+      case 'tags':
+        ;({ data, headers, filename } = await exportTags(supabase, companyId))
+        break
+
+      case 'coupons':
+        ;({ data, headers, filename } = await exportCoupons(supabase, companyId))
+        break
+
+      case 'materials':
+        ;({ data, headers, filename } = await exportMaterials(supabase, companyId))
+        break
+
+      case 'processes':
+        ;({ data, headers, filename } = await exportProcesses(supabase, companyId))
+        break
+
+      case 'sale_items':
+        ;({ data, headers, filename } = await exportSaleItems(supabase, companyId, storeId, startDate, endDate))
         break
 
       default:
@@ -700,5 +748,408 @@ async function exportPoints(
     data: rows,
     headers,
     filename: `points_${startDate}_${endDate}`,
+  }
+}
+
+// ===== マスターデータエクスポート関数 =====
+
+async function exportProducts(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string,
+  storeId: string | undefined
+) {
+  let query = supabase
+    .from('products')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (storeId) {
+    query = query.eq('store_id', storeId)
+  }
+
+  const { data: products, error } = await query
+
+  if (error) throw error
+
+  const headers = [
+    'ID', '商品コード', '商品名', 'カテゴリ', 'ブランド', '説明', '単位',
+    '原価', '販売価格', '在庫数', '最低在庫', '販売用', '店内使用',
+    '税率', '画像URL', '表示順', '有効'
+  ]
+
+  const rows = (products || []).map((p: any) => ({
+    'ID': p.id,
+    '商品コード': p.code || '',
+    '商品名': p.name,
+    'カテゴリ': p.category || '',
+    'ブランド': p.brand || '',
+    '説明': p.description || '',
+    '単位': p.unit || '',
+    '原価': p.cost_price || 0,
+    '販売価格': p.selling_price || 0,
+    '在庫数': p.stock_quantity || 0,
+    '最低在庫': p.min_stock_level || 0,
+    '販売用': p.is_for_sale ? 'true' : 'false',
+    '店内使用': p.is_for_internal_use ? 'true' : 'false',
+    '税率': p.tax_rate || 10,
+    '画像URL': p.image_url || '',
+    '表示順': p.sort_order || 0,
+    '有効': p.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `products_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportMenus(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: menus, error } = await supabase
+    .from('menus')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+
+  const headers = [
+    'ID', 'メニューコード', 'メニュー名', 'カテゴリID', '説明',
+    '基本価格', 'ショート価格', 'ミディアム価格', 'ロング価格',
+    '所要時間（分）', 'セットメニュー', '税率', 'チケット適用',
+    'クーポン適用', '指名必須', '表示順', '有効'
+  ]
+
+  const rows = (menus || []).map((m: any) => ({
+    'ID': m.id,
+    'メニューコード': m.code || '',
+    'メニュー名': m.name,
+    'カテゴリID': m.category_id || '',
+    '説明': m.description || '',
+    '基本価格': m.base_price || 0,
+    'ショート価格': m.price_short || '',
+    'ミディアム価格': m.price_medium || '',
+    'ロング価格': m.price_long || '',
+    '所要時間（分）': m.duration_minutes || 0,
+    'セットメニュー': m.is_set_menu ? 'true' : 'false',
+    '税率': m.tax_rate || 10,
+    'チケット適用': m.is_ticket_eligible ? 'true' : 'false',
+    'クーポン適用': m.is_coupon_eligible ? 'true' : 'false',
+    '指名必須': m.is_nomination_required ? 'true' : 'false',
+    '表示順': m.sort_order || 0,
+    '有効': m.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `menus_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportMenuCategories(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: categories, error } = await supabase
+    .from('menu_categories')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+
+  const headers = ['ID', 'カテゴリ名', '説明', 'アイコン', '色', '表示順', '有効']
+
+  const rows = (categories || []).map((c: any) => ({
+    'ID': c.id,
+    'カテゴリ名': c.name,
+    '説明': c.description || '',
+    'アイコン': c.icon || '',
+    '色': c.color || '',
+    '表示順': c.sort_order || 0,
+    '有効': c.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `menu_categories_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportStaff(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: staff, error } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  const headers = [
+    'ID', 'スタッフコード', '姓', '名', 'セイ', 'メイ',
+    'メール', '電話番号', '役職', 'ランク', '指名料',
+    '入社日', '生年月日', '有効'
+  ]
+
+  const rows = (staff || []).map((s: any) => ({
+    'ID': s.id,
+    'スタッフコード': s.employee_code || '',
+    '姓': s.last_name,
+    '名': s.first_name,
+    'セイ': s.last_name_kana || '',
+    'メイ': s.first_name_kana || '',
+    'メール': s.email || '',
+    '電話番号': s.phone || '',
+    '役職': s.role || '',
+    'ランク': s.rank || '',
+    '指名料': s.nomination_fee || 0,
+    '入社日': s.hire_date || '',
+    '生年月日': s.birth_date || '',
+    '有効': s.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `staff_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportTags(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: tags, error } = await supabase
+    .from('tags')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+
+  const headers = ['ID', 'タグ名', '色', 'アイコン', '親タグID', '表示順', '有効']
+
+  const rows = (tags || []).map((t: any) => ({
+    'ID': t.id,
+    'タグ名': t.name,
+    '色': t.color || '',
+    'アイコン': t.icon || '',
+    '親タグID': t.parent_id || '',
+    '表示順': t.sort_order || 0,
+    '有効': t.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `tags_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportCoupons(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: coupons, error } = await supabase
+    .from('coupons')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+
+  const headers = [
+    'ID', 'クーポンコード', 'クーポン名', '説明', '割引タイプ', '割引値',
+    '最小購入額', '最大割引額', '有効開始日', '有効終了日',
+    '最大使用回数', '使用回数', '1回限り', '有効'
+  ]
+
+  const rows = (coupons || []).map((c: any) => ({
+    'ID': c.id,
+    'クーポンコード': c.code,
+    'クーポン名': c.name,
+    '説明': c.description || '',
+    '割引タイプ': c.discount_type === 'percentage' ? '割合' : '金額',
+    '割引値': c.discount_value || 0,
+    '最小購入額': c.min_purchase_amount || '',
+    '最大割引額': c.max_discount_amount || '',
+    '有効開始日': c.valid_from || '',
+    '有効終了日': c.valid_until || '',
+    '最大使用回数': c.max_uses || '',
+    '使用回数': c.used_count || 0,
+    '1回限り': c.is_single_use ? 'true' : 'false',
+    '有効': c.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `coupons_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportMaterials(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: materials, error } = await supabase
+    .from('materials')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+
+  const headers = [
+    'ID', '材料コード', '材料名', 'カテゴリ', 'ブランド', '説明',
+    '単位', '単価', '在庫数', '最低在庫', '画像URL', '表示順', '有効'
+  ]
+
+  const rows = (materials || []).map((m: any) => ({
+    'ID': m.id,
+    '材料コード': m.code || '',
+    '材料名': m.name,
+    'カテゴリ': m.category || '',
+    'ブランド': m.brand || '',
+    '説明': m.description || '',
+    '単位': m.unit || '',
+    '単価': m.cost_price || 0,
+    '在庫数': m.stock_quantity || 0,
+    '最低在庫': m.min_stock_level || 0,
+    '画像URL': m.image_url || '',
+    '表示順': m.sort_order || 0,
+    '有効': m.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `materials_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportProcesses(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string
+) {
+  const { data: processes, error } = await supabase
+    .from('processes')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+
+  if (error) throw error
+
+  const headers = [
+    'ID', '工程コード', '工程名', '説明', '標準時間（分）',
+    '生産性ウェイト', '表示順', '有効'
+  ]
+
+  const rows = (processes || []).map((p: any) => ({
+    'ID': p.id,
+    '工程コード': p.code || '',
+    '工程名': p.name,
+    '説明': p.description || '',
+    '標準時間（分）': p.default_duration_minutes || 0,
+    '生産性ウェイト': p.productivity_weight || 1,
+    '表示順': p.sort_order || 0,
+    '有効': p.is_active ? 'true' : 'false',
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `processes_${new Date().toISOString().split('T')[0]}`,
+  }
+}
+
+async function exportSaleItems(
+  supabase: ReturnType<typeof createClient>,
+  companyId: string,
+  storeId: string | undefined,
+  startDate: string,
+  endDate: string
+) {
+  // 売上を取得
+  let salesQuery = supabase
+    .from('sales')
+    .select('id, sale_number')
+    .eq('company_id', companyId)
+    .gte('sale_date', `${startDate}T00:00:00`)
+    .lte('sale_date', `${endDate}T23:59:59`)
+
+  if (storeId) {
+    salesQuery = salesQuery.eq('store_id', storeId)
+  }
+
+  const { data: sales, error: salesError } = await salesQuery
+
+  if (salesError) throw salesError
+
+  const saleIds = (sales || []).map((s: any) => s.id)
+
+  if (saleIds.length === 0) {
+    return {
+      data: [],
+      headers: [
+        'ID', '売上ID', '伝票番号', 'アイテム種別', 'アイテムID', '名前',
+        '数量', '単価', '髪の長さ', '長さ追加料金', '割引額',
+        '税率', '税額', '小計', '指名タイプ', '指名料'
+      ],
+      filename: `sale_items_${startDate}_${endDate}`,
+    }
+  }
+
+  const { data: items, error: itemsError } = await supabase
+    .from('sale_items')
+    .select('*')
+    .in('sale_id', saleIds)
+
+  if (itemsError) throw itemsError
+
+  // sale_number のマップを作成
+  const saleNumberMap: Record<string, string> = {}
+  ;(sales || []).forEach((s: any) => {
+    saleNumberMap[s.id] = s.sale_number
+  })
+
+  const headers = [
+    'ID', '売上ID', '伝票番号', 'アイテム種別', 'アイテムID', '名前',
+    '数量', '単価', '髪の長さ', '長さ追加料金', '割引額',
+    '税率', '税額', '小計', '指名タイプ', '指名料'
+  ]
+
+  const rows = (items || []).map((i: any) => ({
+    'ID': i.id,
+    '売上ID': i.sale_id,
+    '伝票番号': saleNumberMap[i.sale_id] || '',
+    'アイテム種別': i.item_type === 'menu' ? 'メニュー' : '商品',
+    'アイテムID': i.item_id || '',
+    '名前': i.name,
+    '数量': i.quantity || 1,
+    '単価': i.unit_price || 0,
+    '髪の長さ': i.hair_length || '',
+    '長さ追加料金': i.hair_length_charge || 0,
+    '割引額': i.discount_amount || 0,
+    '税率': i.tax_rate || 10,
+    '税額': i.tax_amount || 0,
+    '小計': i.subtotal || 0,
+    '指名タイプ': i.nomination_type || '',
+    '指名料': i.nomination_fee || 0,
+  }))
+
+  return {
+    data: rows,
+    headers,
+    filename: `sale_items_${startDate}_${endDate}`,
   }
 }

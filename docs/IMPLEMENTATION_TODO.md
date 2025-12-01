@@ -5,20 +5,20 @@
 | カテゴリ | 完了 | 未完了 | 状態 |
 |---------|------|--------|------|
 | DBスキーマ | 20 | 0 | ✅ 完了 |
-| APIサービス | 31 | 0 | ✅ 完了 |
+| APIサービス | 32 | 0 | ✅ 完了 |
 | Zustand Store | 17 | 0 | ✅ 完了 |
-| Staff App 画面 | 36 | 0 | ✅ 完了 |
+| Staff App 画面 | 37 | 0 | ✅ 完了 |
 | Customer App 画面 | 5 | 0 | ✅ 完了 |
-| 画面↔API連携 | 41 | 0 | ✅ 完了 |
-| Edge Functions | 16 | 1 | ⏳ 一部未実装 |
+| 画面↔API連携 | 42 | 0 | ✅ 完了 |
+| Edge Functions | 17 | 1 | ⏳ 一部未実装 |
 | 外部連携サービス | 13 | 3 | ⏳ 一部未実装 |
 | 権限・セキュリティ | 6 | 0 | ✅ 完了 |
 | SaaS課金 | 2 | 0 | ✅ 完了 |
-| テスト | 391 | 0 | ✅ 完了 |
+| テスト | 431 | 0 | ✅ 完了 |
 
 ---
 
-## APIサービス一覧（31サービス）
+## APIサービス一覧（32サービス）
 
 | サービス | ファイル | 説明 | 状態 |
 |----------|----------|------|------|
@@ -55,10 +55,11 @@
 | featureSettingsService | featureSettingsService.ts | 機能設定 | ✅ |
 | integrationSettingsService | integrationSettingsService.ts | 外部連携設定 | ✅ |
 | subscriptionService | subscriptionService.ts | SaaSサブスクリプション | ✅ |
+| csvService | csvService.ts | CSVインポート/エクスポート | ✅ |
 
 ---
 
-## Staff App 画面一覧（36画面）
+## Staff App 画面一覧（37画面）
 
 ### 認証
 | 画面 | ファイル | 状態 |
@@ -107,6 +108,7 @@
 | 権限管理 | admin/permissions.tsx | ✅ |
 | プラン・お支払い | admin/subscription.tsx | ✅ |
 | 通知設定 | admin/notifications.tsx | ✅ |
+| データ管理 | admin/data-management.tsx | ✅ |
 
 ---
 
@@ -156,9 +158,9 @@
 - [ ] レシートプリンター（Bluetooth）
 - [ ] キャッシュドロワー連携
 
-### テスト（391テスト実装済み）
+### テスト（431テスト実装済み）
 
-#### ユニットテスト - 164テスト
+#### ユニットテスト - 204テスト
 - [x] Zustand Store - 61テスト
   - authStore.test.ts (13テスト)
   - saleStore.test.ts (29テスト)
@@ -166,9 +168,10 @@
 - [x] ユーティリティ - 79テスト
   - validation.test.ts (32テスト)
   - security.test.ts (47テスト)
-- [x] APIサービス - 24テスト
+- [x] APIサービス - 64テスト
   - customerService.test.ts (9テスト)
   - subscriptionService.test.ts (16テスト)
+  - csvValidator.test.ts (40テスト)
 
 #### 統合テスト - 227テスト（11ファイル）
 
