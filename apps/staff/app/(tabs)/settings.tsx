@@ -89,6 +89,12 @@ export default function SettingsScreen() {
       showArrow: true,
     },
     {
+      label: '在庫管理',
+      icon: '📊',
+      onPress: () => router.push('/admin/inventory'),
+      showArrow: true,
+    },
+    {
       label: 'スタッフ管理',
       icon: '👥',
       onPress: () => router.push('/admin/staff'),
@@ -112,10 +118,43 @@ export default function SettingsScreen() {
       onPress: () => router.push('/admin/tickets'),
       showArrow: true,
     },
+  ];
+
+  const reportSettings: SettingItem[] = [
+    {
+      label: '日報',
+      icon: '📝',
+      onPress: () => router.push('/admin/daily-report'),
+      showArrow: true,
+    },
     {
       label: '売上レポート',
       icon: '📊',
       onPress: () => router.push('/admin/reports'),
+      showArrow: true,
+    },
+    {
+      label: '月次レポート',
+      icon: '📈',
+      onPress: () => router.push('/admin/monthly-report'),
+      showArrow: true,
+    },
+    {
+      label: 'スタッフ別売上',
+      icon: '👤',
+      onPress: () => router.push('/admin/staff-sales'),
+      showArrow: true,
+    },
+    {
+      label: '顧客分析',
+      icon: '📉',
+      onPress: () => router.push('/admin/customer-analytics'),
+      showArrow: true,
+    },
+    {
+      label: '売上履歴',
+      icon: '🧾',
+      onPress: () => router.push('/admin/sales-history'),
       showArrow: true,
     },
   ];
@@ -249,6 +288,16 @@ export default function SettingsScreen() {
         <Card variant="outlined" size="md">
           {adminSettings.map((item, index) =>
             renderSettingItem(item, index, index === adminSettings.length - 1)
+          )}
+        </Card>
+      </View>
+
+      {/* Report Settings */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>レポート・分析</Text>
+        <Card variant="outlined" size="md">
+          {reportSettings.map((item, index) =>
+            renderSettingItem(item, index, index === reportSettings.length - 1)
           )}
         </Card>
       </View>
