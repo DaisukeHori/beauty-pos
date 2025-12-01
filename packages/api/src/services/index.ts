@@ -142,6 +142,7 @@ export { pointService } from './pointService';
 export type {
   PointTransaction,
   PointTransactionInsert,
+  PointSettings,
 } from './pointService';
 
 export { shiftService, attendanceService } from './shiftService';
@@ -168,3 +169,16 @@ export type {
   PrintJob,
   Printer,
 } from './printService';
+
+export { staffPerformanceService } from './staffPerformanceService';
+export type {
+  StaffPerformance,
+  StaffRanking,
+  PerformancePeriod,
+} from './staffPerformanceService';
+
+export { reminderSchedulerService } from './reminderSchedulerService';
+export type {
+  ReminderStats,
+  UpcomingReminder,
+} from './reminderSchedulerService';

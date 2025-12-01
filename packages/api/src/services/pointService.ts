@@ -4,7 +4,87 @@ import type { Tables, InsertTables } from '../types/database';
 export type PointTransaction = Tables<'point_transactions'>;
 export type PointTransactionInsert = InsertTables<'point_transactions'>;
 
+export interface PointSettings {
+  pointRate: number; // points per yen (e.g., 0.01 = 1 point per 100 yen)
+  expiryMonths: number; // months until expiry (0 = never expire)
+  minRedeemPoints: number; // minimum points to redeem
+  pointValue: number; // yen value per point (e.g., 1 = 1 point = 1 yen)
+}
+
+const DEFAULT_POINT_SETTINGS: PointSettings = {
+  pointRate: 0.01, // 1%
+  expiryMonths: 12, // 12 months
+  minRedeemPoints: 100,
+  pointValue: 1,
+};
+
 export const pointService = {
+  // Get company point settings
+  async getSettings(companyId: string): Promise<PointSettings> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('companies')
+      .select('settings')
+      .eq('id', companyId)
+      .single();
+
+    if (error) throw error;
+
+    const settings = (data?.settings as Record<string, unknown>) || {};
+    return {
+      pointRate: (settings.point_rate as number) ?? DEFAULT_POINT_SETTINGS.pointRate,
+      expiryMonths: (settings.point_expiry_months as number) ?? DEFAULT_POINT_SETTINGS.expiryMonths,
+      minRedeemPoints: (settings.min_redeem_points as number) ?? DEFAULT_POINT_SETTINGS.minRedeemPoints,
+      pointValue: (settings.point_value as number) ?? DEFAULT_POINT_SETTINGS.pointValue,
+    };
+  },
+
+  // Update company point settings
+  async updateSettings(companyId: string, settings: Partial<PointSettings>): Promise<void> {
+    const supabase = getSupabaseClient();
+
+    // Get current settings
+    const { data: company, error: fetchError } = await supabase
+      .from('companies')
+      .select('settings')
+      .eq('id', companyId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const currentSettings = (company?.settings as Record<string, unknown>) || {};
+    const updatedSettings = {
+      ...currentSettings,
+      point_rate: settings.pointRate ?? currentSettings.point_rate,
+      point_expiry_months: settings.expiryMonths ?? currentSettings.point_expiry_months,
+      min_redeem_points: settings.minRedeemPoints ?? currentSettings.min_redeem_points,
+      point_value: settings.pointValue ?? currentSettings.point_value,
+    };
+
+    const { error } = await supabase
+      .from('companies')
+      .update({ settings: updatedSettings })
+      .eq('id', companyId);
+
+    if (error) throw error;
+  },
+
+  // Calculate points for a sale amount
+  async calculatePoints(companyId: string, amount: number): Promise<number> {
+    const settings = await this.getSettings(companyId);
+    return Math.floor(amount * settings.pointRate);
+  },
+
+  // Calculate expiry date based on company settings
+  async calculateExpiryDate(companyId: string): Promise<string | null> {
+    const settings = await this.getSettings(companyId);
+    if (settings.expiryMonths === 0) return null; // Never expire
+
+    const expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + settings.expiryMonths);
+    return expiryDate.toISOString();
+  },
+
   // Get point transactions for a customer
   async getByCustomer(customerId: string, limit = 50): Promise<PointTransaction[]> {
     const supabase = getSupabaseClient();
@@ -32,7 +112,7 @@ export const pointService = {
     return data?.points_balance || 0;
   },
 
-  // Add points (earn)
+  // Add points (earn) - auto-calculates expiry if not provided
   async earnPoints(
     companyId: string,
     customerId: string,
@@ -47,6 +127,12 @@ export const pointService = {
     const currentBalance = await this.getBalance(customerId);
     const newBalance = currentBalance + points;
 
+    // Calculate expiry date if not provided
+    let finalExpiresAt = expiresAt;
+    if (!finalExpiresAt) {
+      finalExpiresAt = await this.calculateExpiryDate(companyId) || undefined;
+    }
+
     // Create transaction record
     const { data: transaction, error: transactionError } = await supabase
       .from('point_transactions')
@@ -58,7 +144,7 @@ export const pointService = {
         points: points,
         balance_after: newBalance,
         description: description || 'ポイント付与',
-        expires_at: expiresAt || null,
+        expires_at: finalExpiresAt || null,
       })
       .select()
       .single();

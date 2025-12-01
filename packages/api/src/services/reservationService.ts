@@ -193,6 +193,19 @@ export const reservationService = {
 
     if (!dayConfig) return [];
 
+    // Get staff shift for the day (if staffId provided)
+    let staffShift: { start_time: string; end_time: string; break_minutes: number } | null = null;
+    if (staffId) {
+      const { data: shift } = await supabase
+        .from('shifts')
+        .select('start_time, end_time, break_minutes')
+        .eq('staff_id', staffId)
+        .eq('date', date)
+        .eq('status', 'scheduled')
+        .single();
+      staffShift = shift;
+    }
+
     // Get existing reservations for the day
     let query = supabase
       .from('reservations')
@@ -224,15 +237,33 @@ export const reservationService = {
       return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
     };
 
-    const openMinutes = parseTime(dayConfig.open);
-    const closeMinutes = parseTime(dayConfig.close);
+    // Determine working hours: use staff shift if available, otherwise store hours
+    let openMinutes = parseTime(dayConfig.open);
+    let closeMinutes = parseTime(dayConfig.close);
+
+    if (staffShift) {
+      // Use staff shift hours instead of store hours
+      const shiftStart = parseTime(staffShift.start_time.substring(0, 5));
+      const shiftEnd = parseTime(staffShift.end_time.substring(0, 5));
+      openMinutes = Math.max(openMinutes, shiftStart);
+      closeMinutes = Math.min(closeMinutes, shiftEnd);
+    }
+
+    // Calculate break time (assume break is in the middle of the shift)
+    let breakStartMinutes = 0;
+    let breakEndMinutes = 0;
+    if (staffShift && staffShift.break_minutes > 0) {
+      const midPoint = Math.floor((openMinutes + closeMinutes) / 2);
+      breakStartMinutes = midPoint - Math.floor(staffShift.break_minutes / 2);
+      breakEndMinutes = midPoint + Math.ceil(staffShift.break_minutes / 2);
+    }
 
     for (let time = openMinutes; time + durationMinutes <= closeMinutes; time += intervalMinutes) {
       const startTime = `${date}T${formatTime(time)}:00`;
       const endTime = `${date}T${formatTime(time + durationMinutes)}:00`;
 
       // Check if slot conflicts with existing reservations
-      const isConflict = reservations?.some((r) => {
+      const isReservationConflict = reservations?.some((r) => {
         const rStart = new Date(r.start_time).getTime();
         const rEnd = new Date(r.end_time).getTime();
         const sStart = new Date(startTime).getTime();
@@ -240,10 +271,14 @@ export const reservationService = {
         return sStart < rEnd && sEnd > rStart;
       });
 
+      // Check if slot conflicts with break time
+      const isBreakConflict = staffShift && staffShift.break_minutes > 0 &&
+        time < breakEndMinutes && (time + durationMinutes) > breakStartMinutes;
+
       slots.push({
         startTime,
         endTime,
-        available: !isConflict,
+        available: !isReservationConflict && !isBreakConflict,
         staffId: staffId || undefined,
       });
     }
