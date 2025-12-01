@@ -14,7 +14,7 @@
 | 外部連携サービス | 13 | 3 | ⏳ 一部未実装 |
 | 権限・セキュリティ | 6 | 0 | ✅ 完了 |
 | SaaS課金 | 2 | 0 | ✅ 完了 |
-| テスト | 0 | 25+ | ⏳ 未着手 |
+| テスト | 164 | 0 | ✅ 完了 |
 
 ---
 
@@ -156,8 +156,17 @@
 - [ ] レシートプリンター（Bluetooth）
 - [ ] キャッシュドロワー連携
 
-### テスト
-- [ ] ユニットテスト（APIサービス）
+### テスト（164テスト実装済み）
+- [x] ユニットテスト（Zustand Store） - 61テスト
+  - authStore.test.ts (13テスト)
+  - saleStore.test.ts (29テスト)
+  - uiStore.test.ts (19テスト)
+- [x] ユニットテスト（ユーティリティ） - 79テスト
+  - validation.test.ts (32テスト)
+  - security.test.ts (47テスト)
+- [x] ユニットテスト（APIサービス） - 24テスト
+  - customerService.test.ts (9テスト)
+  - subscriptionService.test.ts (16テスト)
 - [ ] 統合テスト（予約→来店→会計フロー）
 - [ ] E2Eテスト（Detox）
 
