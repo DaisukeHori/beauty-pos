@@ -7,6 +7,9 @@ export * from './stores';
 // Hooks
 export * from './hooks';
 
+// Components
+export * from './components';
+
 // Utils (security, validation)
 export * from './utils';
 

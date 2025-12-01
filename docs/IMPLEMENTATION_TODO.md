@@ -6,13 +6,13 @@
 |---------|------|--------|
 | DBスキーマ | 20 | 0 |
 | APIサービス | 26 | 0 |
-| Zustand Store | 13 | 5 |
+| Zustand Store | 16 | 2 |
 | 画面UI | 18 | 7 |
 | 画面↔API連携 | 2 | 23 |
-| Edge Functions | 14 | 2 |
+| Edge Functions | 15 | 1 |
 | 外部連携 | 5 | 3 |
 | テスト | 0 | 25+ |
-| 権限・セキュリティ | 3 | 2 |
+| 権限・セキュリティ | 4 | 1 |
 
 ---
 
@@ -34,7 +34,7 @@
 - [x] `functions/audit-log/index.ts` - 監査ログ記録
 - [x] `functions/health-check/index.ts` - ヘルスチェック
 - [x] `functions/reservation-reminder/index.ts` - 予約リマインダー自動送信
-- [ ] `functions/export-csv/index.ts` - CSV/Excel出力
+- [x] `functions/export-csv/index.ts` - CSV/Excel出力
 
 ### 1.2 Supabase Realtime 設定
 - [x] `visits` テーブルのRealtime有効化
@@ -67,18 +67,18 @@
 - [x] `packages/api/src/services/memberRankService.ts` - 会員ランク管理
 
 ### 1.5 不足Store追加
-- [x] `packages/core/src/stores/checkoutStore.ts` - 会計状態管理
-- [ ] `packages/core/src/stores/cartStore.ts` - カート状態管理
-- [ ] `packages/core/src/stores/dailyReportStore.ts` - 日報状態
-- [ ] `packages/core/src/stores/notificationStore.ts` - 通知状態
-- [ ] `packages/core/src/stores/simulationStore.ts` - シミュレーション状態
+- [x] `packages/core/src/stores/checkoutStore.ts` - 会計状態管理（saleStore内に統合）
+- [x] `packages/core/src/stores/dailyReportStore.ts` - 日報状態
+- [x] `packages/core/src/stores/notificationStore.ts` - 通知状態
+- [x] `packages/core/src/stores/simulationStore.ts` - シミュレーション状態
+- [ ] `packages/core/src/stores/cartStore.ts` - カート状態管理（将来拡張）
 
 ### 1.6 権限・セキュリティ (追加)
 - [x] `packages/core/src/hooks/usePermissions.ts` - 権限別UI制御フック
 - [x] ロール定義（assistant/staff/manager/owner）
 - [x] 27種類の機能権限マッピング
-- [ ] 画面アクセス制御（PermissionGuard）
-- [ ] API アクセス制御
+- [x] 画面アクセス制御（PermissionGuard）
+- [ ] API アクセス制御（Edge Function）
 
 ---
 
