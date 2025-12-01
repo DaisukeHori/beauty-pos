@@ -105,3 +105,17 @@ export type {
   TranscriptSegment,
   AnalysisResult,
 } from './aiService';
+
+export { productService } from './productService';
+export type {
+  Product,
+  ProductInsert,
+  ProductUpdate,
+} from './productService';
+
+export { dailyReportService } from './dailyReportService';
+export type {
+  DailyReport,
+  DailyReportInsert,
+  DailyReportUpdate,
+} from './dailyReportService';

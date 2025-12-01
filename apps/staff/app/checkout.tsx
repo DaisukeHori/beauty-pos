@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,20 +7,54 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Modal as RNModal,
-  FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Card, Button, Badge, Avatar, Modal, Input, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
-import { useAuthStore, useSaleStore, formatCurrency } from '@beauty-pos/core';
+import { Card, Button, Badge, Avatar, Modal, colors, spacing, textStyles, borderRadius } from '@beauty-pos/ui';
+import { useAuthStore, useUIStore, formatCurrency } from '@beauty-pos/core';
+import {
+  saleService,
+  visitService,
+  menuService,
+  productService,
+  customerService,
+  staffService,
+  type VisitWithDetails,
+  type SaleInsert,
+} from '@beauty-pos/api';
+import { getSupabaseClient } from '@beauty-pos/api';
 
 type PaymentMethod = 'cash' | 'card' | 'electronic_money' | 'qr_payment' | 'credit';
 type HairLength = 'short' | 'medium' | 'long';
 
+interface MenuItem {
+  id: string;
+  name: string;
+  basePrice: number;
+  priceShort?: number;
+  priceMedium?: number;
+  priceLong?: number;
+  taxRate: number;
+}
+
+interface ProductItem {
+  id: string;
+  name: string;
+  price: number;
+  taxRate: number;
+  stock: number;
+}
+
+interface StaffMember {
+  id: string;
+  name: string;
+  nominationFee: number;
+}
+
 interface CartItem {
   id: string;
   type: 'menu' | 'product';
-  itemId?: string;
+  itemId: string;
   name: string;
   basePrice: number;
   quantity: number;
@@ -47,28 +81,12 @@ interface Discount {
   sourceId?: string;
 }
 
-// Mock data
-const mockMenus = [
-  { id: 'm1', name: 'カット', basePrice: 5500, priceShort: 5000, priceMedium: 5500, priceLong: 6000, taxRate: 10 },
-  { id: 'm2', name: 'カラー', basePrice: 8000, priceShort: 7000, priceMedium: 8000, priceLong: 9500, taxRate: 10 },
-  { id: 'm3', name: 'パーマ', basePrice: 10000, priceShort: 9000, priceMedium: 10000, priceLong: 12000, taxRate: 10 },
-  { id: 'm4', name: 'トリートメント', basePrice: 4000, priceShort: 3500, priceMedium: 4000, priceLong: 5000, taxRate: 10 },
-  { id: 'm5', name: 'ヘッドスパ', basePrice: 3500, priceShort: 3500, priceMedium: 3500, priceLong: 3500, taxRate: 10 },
-];
-
-const mockProducts = [
-  { id: 'p1', name: 'シャンプー 300ml', price: 2200, taxRate: 10 },
-  { id: 'p2', name: 'トリートメント 200ml', price: 2800, taxRate: 10 },
-  { id: 'p3', name: 'ヘアオイル 100ml', price: 3300, taxRate: 10 },
-  { id: 'p4', name: 'スタイリングワックス', price: 1800, taxRate: 10 },
-];
-
-const mockStaff = [
-  { id: 's1', name: '田中 美咲', nominationFee: 550 },
-  { id: 's2', name: '鈴木 花子', nominationFee: 550 },
-  { id: 's3', name: '山本 さくら', nominationFee: 330 },
-  { id: 's4', name: '佐藤 太郎', nominationFee: 0 },
-];
+interface CustomerInfo {
+  id: string;
+  name: string;
+  phone: string;
+  points: number;
+}
 
 const paymentMethods: { key: PaymentMethod; label: string; icon: string }[] = [
   { key: 'cash', label: '現金', icon: '💴' },
@@ -79,38 +97,114 @@ const paymentMethods: { key: PaymentMethod; label: string; icon: string }[] = [
 ];
 
 export default function CheckoutScreen() {
-  const params = useLocalSearchParams();
-  const { staff } = useAuthStore();
+  const params = useLocalSearchParams<{ visitId?: string }>();
+  const { staff, company, store } = useAuthStore();
+  const { showToast } = useUIStore();
 
-  // State
+  // Loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [menus, setMenus] = useState<MenuItem[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [visit, setVisit] = useState<VisitWithDetails | null>(null);
+  const [customer, setCustomer] = useState<CustomerInfo | null>(null);
+
+  // Cart state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [pointsToUse, setPointsToUse] = useState(0);
-  const [customerPoints, setCustomerPoints] = useState(2400); // Mock customer points
+
+  // Modal states
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
+
+  // Payment input states
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('cash');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [manualDiscountValue, setManualDiscountValue] = useState('');
   const [manualDiscountType, setManualDiscountType] = useState<'percentage' | 'fixed'>('fixed');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Customer info (mock)
-  const customer = {
-    id: 'c1',
-    name: '山田 花子',
-    phone: '090-1234-5678',
-    points: customerPoints,
-  };
+  // Receipt state
+  const [saleResult, setSaleResult] = useState<{
+    saleId: string;
+    invoiceNumber: string;
+    pointsEarned: number;
+  } | null>(null);
+
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      if (!company?.id || !store?.id) return;
+
+      try {
+        // Load menus
+        const menuData = await menuService.getActive(company.id, store.id);
+        setMenus(menuData.map(m => ({
+          id: m.id,
+          name: m.name,
+          basePrice: m.price,
+          priceShort: m.price_short || m.price,
+          priceMedium: m.price_medium || m.price,
+          priceLong: m.price_long || m.price,
+          taxRate: m.tax_rate || 10,
+        })));
+
+        // Load products
+        const productData = await productService.getActive(company.id, store.id);
+        setProducts(productData.map(p => ({
+          id: p.id,
+          name: p.name,
+          price: p.selling_price,
+          taxRate: p.tax_rate || 10,
+          stock: p.stock_quantity || 0,
+        })));
+
+        // Load staff
+        const staffData = await staffService.getByStore(company.id, store.id);
+        setStaffList(staffData.map(s => ({
+          id: s.id,
+          name: `${s.last_name} ${s.first_name}`,
+          nominationFee: s.nomination_fee || 0,
+        })));
+
+        // Load visit if visitId provided
+        if (params.visitId) {
+          const visitData = await visitService.getById(params.visitId);
+          if (visitData) {
+            setVisit(visitData);
+
+            // Load customer
+            if (visitData.customer) {
+              setCustomer({
+                id: visitData.customer.id,
+                name: `${visitData.customer.last_name} ${visitData.customer.first_name}`,
+                phone: visitData.customer.phone || '',
+                points: visitData.customer.points || 0,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load checkout data:', error);
+        showToast('データの読み込みに失敗しました', 'error');
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadData();
+  }, [company?.id, store?.id, params.visitId, showToast]);
 
   // Calculate totals
   const calculateItemPrice = (item: CartItem): number => {
-    const baseAmount = (item.basePrice + item.hairLengthCharge + item.nominationFee) * item.quantity;
-    return baseAmount;
+    return (item.basePrice + item.hairLengthCharge + item.nominationFee) * item.quantity;
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + calculateItemPrice(item), 0);
@@ -125,24 +219,21 @@ export default function CheckoutScreen() {
   };
 
   const discountTotal = calculateDiscountAmount();
-  const taxableAmount = subtotal - discountTotal;
   const tax10Amount = Math.floor(cartItems
     .filter(item => item.taxRate === 10)
     .reduce((sum, item) => sum + calculateItemPrice(item), 0) * 10 / 110);
   const tax8Amount = Math.floor(cartItems
     .filter(item => item.taxRate === 8)
     .reduce((sum, item) => sum + calculateItemPrice(item), 0) * 8 / 108);
-  const taxTotal = tax10Amount + tax8Amount;
   const grandTotal = Math.max(0, subtotal - discountTotal);
-
   const paidAmount = payments.reduce((sum, p) => sum + p.amount, 0);
   const remainingAmount = grandTotal - paidAmount;
 
   // Add menu to cart
-  const addMenuToCart = (menu: typeof mockMenus[0], hairLength: HairLength = 'medium') => {
-    const price = hairLength === 'short' ? menu.priceShort || menu.basePrice
-      : hairLength === 'long' ? menu.priceLong || menu.basePrice
-      : menu.priceMedium || menu.basePrice;
+  const addMenuToCart = (menu: MenuItem, hairLength: HairLength = 'medium') => {
+    const price = hairLength === 'short' ? (menu.priceShort || menu.basePrice)
+      : hairLength === 'long' ? (menu.priceLong || menu.basePrice)
+      : (menu.priceMedium || menu.basePrice);
 
     const hairLengthCharge = price - menu.basePrice;
 
@@ -155,11 +246,13 @@ export default function CheckoutScreen() {
       quantity: 1,
       hairLength,
       hairLengthCharge,
-      nominationType: 'free',
-      nominationFee: 0,
+      nominationType: visit?.staff_id ? 'nomination' : 'free',
+      nominationFee: visit?.staff_id ? (staffList.find(s => s.id === visit.staff_id)?.nominationFee || 0) : 0,
       taxRate: menu.taxRate,
-      primaryStaffId: staff?.id,
-      primaryStaffName: `${staff?.lastName} ${staff?.firstName}`,
+      primaryStaffId: visit?.staff_id || staff?.id,
+      primaryStaffName: visit?.staff
+        ? `${visit.staff.last_name} ${visit.staff.first_name}`
+        : `${staff?.lastName} ${staff?.firstName}`,
       assistantStaffIds: [],
     };
 
@@ -168,7 +261,7 @@ export default function CheckoutScreen() {
   };
 
   // Add product to cart
-  const addProductToCart = (product: typeof mockProducts[0]) => {
+  const addProductToCart = (product: ProductItem) => {
     const existingItem = cartItems.find(item => item.itemId === product.id && item.type === 'product');
 
     if (existingItem) {
@@ -212,19 +305,23 @@ export default function CheckoutScreen() {
   };
 
   // Set nomination for item
-  const setNomination = (itemId: string, staffId: string, staffName: string, fee: number) => {
+  const setNomination = (staffMember: StaffMember) => {
+    if (!selectedCartItemId) return;
+
     setCartItems(cartItems.map(item => {
-      if (item.id === itemId) {
+      if (item.id === selectedCartItemId) {
         return {
           ...item,
           nominationType: 'nomination' as const,
-          nominationFee: fee,
-          primaryStaffId: staffId,
-          primaryStaffName: staffName,
+          nominationFee: staffMember.nominationFee,
+          primaryStaffId: staffMember.id,
+          primaryStaffName: staffMember.name,
         };
       }
       return item;
     }));
+    setShowStaffModal(false);
+    setSelectedCartItemId(null);
   };
 
   // Add payment
@@ -266,6 +363,8 @@ export default function CheckoutScreen() {
 
   // Process checkout
   const processCheckout = async () => {
+    if (!company?.id || !store?.id) return;
+
     if (cartItems.length === 0) {
       Alert.alert('エラー', 'カートにアイテムがありません');
       return;
@@ -279,15 +378,134 @@ export default function CheckoutScreen() {
     setIsProcessing(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Build sale items
+      const saleItems = cartItems.map(item => ({
+        type: item.type,
+        itemId: item.itemId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: item.basePrice + item.hairLengthCharge,
+        nominationFee: item.nominationFee,
+        taxRate: item.taxRate,
+        primaryStaffId: item.primaryStaffId,
+        assistantStaffIds: item.assistantStaffIds,
+      }));
+
+      // Build sale payments
+      const salePayments = payments.map(p => ({
+        method: p.method,
+        amount: p.amount,
+      }));
+
+      // Build discounts
+      const saleDiscounts = discounts.map(d => ({
+        type: d.type,
+        name: d.name,
+        value: d.value,
+        valueType: d.valueType,
+        sourceId: d.sourceId,
+      }));
+
+      // Call calculate-sale Edge Function first
+      const supabase = getSupabaseClient();
+      const { data: calcResult, error: calcError } = await supabase.functions.invoke('calculate-sale', {
+        body: {
+          items: saleItems,
+          payments: salePayments,
+          discounts: saleDiscounts,
+          pointsUsed: pointsToUse,
+          customerId: customer?.id,
+        },
+      });
+
+      if (calcError) throw calcError;
+
+      // Create sale
+      const saleData: SaleInsert = {
+        company_id: company.id,
+        store_id: store.id,
+        customer_id: customer?.id || null,
+        staff_id: staff?.id || null,
+        visit_id: params.visitId || null,
+        subtotal: calcResult.subtotal,
+        discount_total: calcResult.discountTotal,
+        tax_total: calcResult.tax10 + calcResult.tax8,
+        grand_total: calcResult.grandTotal,
+        points_used: pointsToUse,
+        points_earned: calcResult.pointsEarned || 0,
+        status: 'completed',
+      };
+
+      const sale = await saleService.create(saleData);
+
+      // Create sale items
+      for (const item of cartItems) {
+        await saleService.addItem(sale.id, {
+          sale_id: sale.id,
+          item_type: item.type,
+          menu_id: item.type === 'menu' ? item.itemId : null,
+          product_id: item.type === 'product' ? item.itemId : null,
+          name: item.name,
+          quantity: item.quantity,
+          unit_price: item.basePrice + item.hairLengthCharge,
+          nomination_fee: item.nominationFee,
+          tax_rate: item.taxRate,
+          subtotal: calculateItemPrice(item),
+          staff_id: item.primaryStaffId || null,
+        });
+      }
+
+      // Create sale payments
+      for (const payment of payments) {
+        await saleService.addPayment(sale.id, {
+          sale_id: sale.id,
+          method: payment.method,
+          amount: payment.amount,
+        });
+      }
+
+      // Update visit status if applicable
+      if (params.visitId) {
+        await visitService.checkOut(params.visitId);
+      }
+
+      // Update customer points if applicable
+      if (customer?.id) {
+        await customerService.update(customer.id, {
+          points: (customer.points - pointsToUse + (calcResult.pointsEarned || 0)),
+          total_spent: customer.points + calcResult.grandTotal, // This should be accumulated
+          last_visit_at: new Date().toISOString(),
+        });
+      }
+
+      // Set result for receipt
+      setSaleResult({
+        saleId: sale.id,
+        invoiceNumber: sale.invoice_number || '',
+        pointsEarned: calcResult.pointsEarned || 0,
+      });
 
       // Show receipt preview
       setShowReceiptPreview(true);
+      showToast('会計が完了しました', 'success');
     } catch (error) {
+      console.error('Checkout failed:', error);
       Alert.alert('エラー', '会計処理に失敗しました');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  // Print receipt
+  const printReceipt = async () => {
+    if (!saleResult?.saleId) return;
+
+    try {
+      // In a real app, this would call a print service or Edge Function
+      showToast('レシートを印刷しています...', 'info');
+      // await receiptService.print(saleResult.saleId);
+    } catch (error) {
+      showToast('印刷に失敗しました', 'error');
     }
   };
 
@@ -337,9 +555,7 @@ export default function CheckoutScreen() {
         </View>
 
         <View style={styles.priceBreakdown}>
-          <Text style={styles.priceText}>
-            {formatCurrency(item.basePrice)}
-          </Text>
+          <Text style={styles.priceText}>{formatCurrency(item.basePrice)}</Text>
           {item.hairLengthCharge !== 0 && (
             <Text style={styles.chargeText}>
               +{formatCurrency(item.hairLengthCharge)} (ロング料金)
@@ -352,22 +568,35 @@ export default function CheckoutScreen() {
           )}
         </View>
 
-        <Text style={styles.itemTotal}>
-          {formatCurrency(calculateItemPrice(item))}
-        </Text>
+        <Text style={styles.itemTotal}>{formatCurrency(calculateItemPrice(item))}</Text>
       </View>
 
       {item.type === 'menu' && (
         <View style={styles.staffAssignment}>
           <Text style={styles.staffLabel}>担当:</Text>
           <Text style={styles.staffName}>{item.primaryStaffName || '未設定'}</Text>
-          <TouchableOpacity style={styles.changeStaffButton}>
+          <TouchableOpacity
+            style={styles.changeStaffButton}
+            onPress={() => {
+              setSelectedCartItemId(item.id);
+              setShowStaffModal(true);
+            }}
+          >
             <Text style={styles.changeStaffText}>変更</Text>
           </TouchableOpacity>
         </View>
       )}
     </View>
   );
+
+  if (isInitialLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -384,19 +613,21 @@ export default function CheckoutScreen() {
         {/* Left Panel - Cart */}
         <View style={styles.leftPanel}>
           {/* Customer Info */}
-          <Card variant="outlined" size="sm" style={styles.customerCard}>
-            <View style={styles.customerInfo}>
-              <Avatar name={customer.name} size="md" />
-              <View style={styles.customerDetails}>
-                <Text style={styles.customerName}>{customer.name}</Text>
-                <Text style={styles.customerPhone}>{customer.phone}</Text>
+          {customer && (
+            <Card variant="outlined" size="sm" style={styles.customerCard}>
+              <View style={styles.customerInfo}>
+                <Avatar name={customer.name} size="md" />
+                <View style={styles.customerDetails}>
+                  <Text style={styles.customerName}>{customer.name}</Text>
+                  <Text style={styles.customerPhone}>{customer.phone}</Text>
+                </View>
+                <View style={styles.pointsInfo}>
+                  <Text style={styles.pointsLabel}>ポイント</Text>
+                  <Text style={styles.pointsValue}>{customer.points.toLocaleString()} pt</Text>
+                </View>
               </View>
-              <View style={styles.pointsInfo}>
-                <Text style={styles.pointsLabel}>ポイント</Text>
-                <Text style={styles.pointsValue}>{customer.points.toLocaleString()} pt</Text>
-              </View>
-            </View>
-          </Card>
+            </Card>
+          )}
 
           {/* Cart Items */}
           <View style={styles.cartContainer}>
@@ -459,28 +690,30 @@ export default function CheckoutScreen() {
             ))}
 
             {/* Points Usage */}
-            <View style={styles.pointsUsage}>
-              <Text style={styles.pointsUsageLabel}>ポイント使用</Text>
-              <View style={styles.pointsInputContainer}>
-                <TextInput
-                  style={styles.pointsInput}
-                  value={pointsToUse.toString()}
-                  onChangeText={(text) => {
-                    const value = parseInt(text) || 0;
-                    setPointsToUse(Math.min(value, customer.points, grandTotal));
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                />
-                <Text style={styles.pointsSuffix}>pt</Text>
-                <TouchableOpacity
-                  style={styles.useAllButton}
-                  onPress={() => setPointsToUse(Math.min(customer.points, subtotal - calculateDiscountAmount() + pointsToUse))}
-                >
-                  <Text style={styles.useAllText}>全使用</Text>
-                </TouchableOpacity>
+            {customer && (
+              <View style={styles.pointsUsage}>
+                <Text style={styles.pointsUsageLabel}>ポイント使用</Text>
+                <View style={styles.pointsInputContainer}>
+                  <TextInput
+                    style={styles.pointsInput}
+                    value={pointsToUse.toString()}
+                    onChangeText={(text) => {
+                      const value = parseInt(text) || 0;
+                      setPointsToUse(Math.min(value, customer.points, grandTotal));
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                  />
+                  <Text style={styles.pointsSuffix}>pt</Text>
+                  <TouchableOpacity
+                    style={styles.useAllButton}
+                    onPress={() => setPointsToUse(Math.min(customer.points, subtotal - calculateDiscountAmount() + pointsToUse))}
+                  >
+                    <Text style={styles.useAllText}>全使用</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </Card>
 
           {/* Payment Methods */}
@@ -583,18 +816,20 @@ export default function CheckoutScreen() {
         title="メニュー選択"
         size="lg"
       >
-        <View style={styles.menuGrid}>
-          {mockMenus.map((menu) => (
-            <TouchableOpacity
-              key={menu.id}
-              style={styles.menuItem}
-              onPress={() => addMenuToCart(menu)}
-            >
-              <Text style={styles.menuName}>{menu.name}</Text>
-              <Text style={styles.menuPrice}>{formatCurrency(menu.basePrice)}〜</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <ScrollView style={styles.modalScroll}>
+          <View style={styles.menuGrid}>
+            {menus.map((menu) => (
+              <TouchableOpacity
+                key={menu.id}
+                style={styles.menuItem}
+                onPress={() => addMenuToCart(menu)}
+              >
+                <Text style={styles.menuName}>{menu.name}</Text>
+                <Text style={styles.menuPrice}>{formatCurrency(menu.basePrice)}〜</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </Modal>
 
       {/* Product Selection Modal */}
@@ -604,18 +839,50 @@ export default function CheckoutScreen() {
         title="商品選択"
         size="lg"
       >
-        <View style={styles.menuGrid}>
-          {mockProducts.map((product) => (
+        <ScrollView style={styles.modalScroll}>
+          <View style={styles.menuGrid}>
+            {products.map((product) => (
+              <TouchableOpacity
+                key={product.id}
+                style={[styles.menuItem, product.stock <= 0 && styles.outOfStock]}
+                onPress={() => product.stock > 0 && addProductToCart(product)}
+                disabled={product.stock <= 0}
+              >
+                <Text style={styles.menuName}>{product.name}</Text>
+                <Text style={styles.menuPrice}>{formatCurrency(product.price)}</Text>
+                {product.stock <= 0 && <Text style={styles.outOfStockText}>在庫切れ</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </Modal>
+
+      {/* Staff Selection Modal */}
+      <Modal
+        visible={showStaffModal}
+        onClose={() => {
+          setShowStaffModal(false);
+          setSelectedCartItemId(null);
+        }}
+        title="担当者選択"
+        size="md"
+      >
+        <ScrollView style={styles.modalScroll}>
+          {staffList.map((staffMember) => (
             <TouchableOpacity
-              key={product.id}
-              style={styles.menuItem}
-              onPress={() => addProductToCart(product)}
+              key={staffMember.id}
+              style={styles.staffItem}
+              onPress={() => setNomination(staffMember)}
             >
-              <Text style={styles.menuName}>{product.name}</Text>
-              <Text style={styles.menuPrice}>{formatCurrency(product.price)}</Text>
+              <Text style={styles.staffItemName}>{staffMember.name}</Text>
+              {staffMember.nominationFee > 0 && (
+                <Text style={styles.staffItemFee}>
+                  指名料: {formatCurrency(staffMember.nominationFee)}
+                </Text>
+              )}
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </Modal>
 
       {/* Payment Modal */}
@@ -756,11 +1023,22 @@ export default function CheckoutScreen() {
             </View>
           )}
 
+          {saleResult && (
+            <View style={styles.saleInfo}>
+              <Text style={styles.invoiceNumber}>伝票番号: {saleResult.invoiceNumber}</Text>
+              {saleResult.pointsEarned > 0 && (
+                <Text style={styles.pointsEarned}>
+                  獲得ポイント: {saleResult.pointsEarned} pt
+                </Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.receiptActions}>
             <Button
               variant="outline"
               fullWidth
-              onPress={() => {/* Print receipt */}}
+              onPress={printReceipt}
               style={styles.receiptButton}
             >
               🖨️ レシート印刷
@@ -782,6 +1060,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[100],
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.neutral[100],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[4],
   },
   header: {
     flexDirection: 'row',
@@ -1149,6 +1438,9 @@ const styles = StyleSheet.create({
   checkoutButton: {
     marginTop: 'auto',
   },
+  modalScroll: {
+    maxHeight: 400,
+  },
   menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1157,6 +1449,14 @@ const styles = StyleSheet.create({
   menuItem: {
     width: '33.33%',
     padding: spacing[1],
+  },
+  outOfStock: {
+    opacity: 0.5,
+  },
+  outOfStockText: {
+    ...textStyles.caption,
+    color: colors.error[500],
+    textAlign: 'center',
   },
   menuName: {
     ...textStyles.label,
@@ -1171,6 +1471,20 @@ const styles = StyleSheet.create({
     ...textStyles.bodySm,
     color: colors.neutral[500],
     textAlign: 'center',
+  },
+  staffItem: {
+    padding: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[100],
+  },
+  staffItemName: {
+    ...textStyles.label,
+    color: colors.neutral[900],
+  },
+  staffItemFee: {
+    ...textStyles.caption,
+    color: colors.primary[600],
+    marginTop: spacing[0.5],
   },
   paymentMethods: {
     flexDirection: 'row',
@@ -1333,6 +1647,19 @@ const styles = StyleSheet.create({
   changeAmount: {
     ...textStyles.h4,
     color: colors.success[600],
+  },
+  saleInfo: {
+    alignItems: 'center',
+    marginBottom: spacing[4],
+  },
+  invoiceNumber: {
+    ...textStyles.bodySm,
+    color: colors.neutral[600],
+  },
+  pointsEarned: {
+    ...textStyles.label,
+    color: colors.primary[600],
+    marginTop: spacing[1],
   },
   receiptActions: {
     width: '100%',
