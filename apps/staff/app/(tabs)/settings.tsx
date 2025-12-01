@@ -64,7 +64,7 @@ export default function SettingsScreen() {
     {
       label: '通知設定',
       icon: '🔔',
-      onPress: () => {},
+      onPress: () => router.push('/admin/notifications'),
       showArrow: true,
     },
   ];
@@ -121,6 +121,12 @@ export default function SettingsScreen() {
   ];
 
   const systemSettings: SettingItem[] = [
+    {
+      label: 'プラン・お支払い',
+      icon: '💳',
+      onPress: () => router.push('/admin/subscription'),
+      showArrow: true,
+    },
     {
       label: '外部連携設定',
       icon: '🔗',

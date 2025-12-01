@@ -238,3 +238,15 @@ export type {
   FeatureCategory,
   FeatureInfo,
 } from './featureSettingsService';
+
+export { subscriptionService } from './subscriptionService';
+export type {
+  PlanType,
+  BillingCycle,
+  SubscriptionStatus,
+  SubscriptionPlan,
+  Subscription,
+  BillingInfo,
+  PaymentMethod,
+  Invoice,
+} from './subscriptionService';
