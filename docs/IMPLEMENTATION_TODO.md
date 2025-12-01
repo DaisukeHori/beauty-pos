@@ -260,6 +260,29 @@
 - 新規顧客の完全フロー（登録→予約→来店→施術→会計→ポイント付与）
 - リピーター顧客の特典フロー（会員ランクアップ→特典適用）
 
+#### CRUD操作テストカバレッジ
+
+各サービスのCRUD操作（Create, Read, Update, Delete）がテストされている状況：
+
+| サービス | Create | Read | Update | Delete | 備考 |
+|----------|:------:|:----:|:------:|:------:|------|
+| reservationService | ✅ | ✅ | ✅ | ✅ | キャンセルは論理削除 |
+| visitService | ✅ | ✅ | ✅ | ✅ | ステータス遷移でカバー |
+| saleService | ✅ | ✅ | ✅ | ✅ | void処理でカバー |
+| customerService | ✅ | ✅ | ✅ | ✅ | カルテ・写真・カラーレシピ含む |
+| staffService | ✅ | ✅ | ✅ | ✅ | 店舗配属・指名料設定含む |
+| menuService | ✅ | ✅ | ✅ | ✅ | カテゴリ・施術工程含む |
+| productService | ✅ | ✅ | ✅ | ✅ | 在庫調整含む |
+| ticketService | ✅ | ✅ | ✅ | ✅ | 使用・キャンセル含む |
+| couponService | ✅ | ✅ | ✅ | - | 削除は実運用で稀（無効化で対応）|
+| pointService | ✅ | ✅ | ✅ | - | 付与・使用でカバー |
+| shiftService | ✅ | ✅ | ✅ | ✅ | 週コピー機能含む |
+| cancellationService | ✅ | ✅ | ✅ | - | ポリシー管理（削除は想定外）|
+| dailyReportService | ✅ | ✅ | ✅ | - | 締め処理でカバー（削除は想定外）|
+| notificationService | ✅ | ✅ | ✅ | - | 既読処理でカバー |
+
+**凡例**: ✅ = テスト済み, - = ビジネスロジック上不要
+
 #### 未実装テスト
 - [ ] E2Eテスト（Detox）
 

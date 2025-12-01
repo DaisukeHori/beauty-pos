@@ -582,11 +582,13 @@ const proration = subscriptionService.calculateProratedAmount(
 
 ### テスト概要
 
-| パッケージ | テストスイート | テスト数 |
-|-----------|---------------|----------|
-| @beauty-pos/core | 5 | 140 |
-| @beauty-pos/api | 2 | 24 |
-| **合計** | **7** | **164** |
+| カテゴリ | テストスイート | テスト数 |
+|---------|---------------|----------|
+| ユニットテスト（Zustand Store） | 3 | 61 |
+| ユニットテスト（ユーティリティ） | 2 | 79 |
+| ユニットテスト（APIサービス） | 2 | 24 |
+| 統合テスト（ビジネスフロー） | 11 | 227 |
+| **合計** | **14** | **391** |
 
 ### テスト実行
 
@@ -598,6 +600,9 @@ pnpm test
 cd packages/core && pnpm test
 cd packages/api && pnpm test
 
+# 特定のテストファイル
+cd packages/api && pnpm test -- --testPathPattern="allBusinessFlows"
+
 # ウォッチモード
 pnpm test:watch
 
@@ -607,16 +612,84 @@ pnpm test:coverage
 
 ### テスト構成
 
-#### Core パッケージ
-- `stores/__tests__/authStore.test.ts` - 認証ストアテスト
-- `stores/__tests__/saleStore.test.ts` - 会計ストアテスト
-- `stores/__tests__/uiStore.test.ts` - UIストアテスト
-- `utils/__tests__/validation.test.ts` - バリデーションテスト
-- `utils/__tests__/security.test.ts` - セキュリティテスト
+#### ユニットテスト（164テスト）
 
-#### API パッケージ
-- `__tests__/customerService.test.ts` - 顧客サービステスト
-- `__tests__/subscriptionService.test.ts` - サブスクリプションテスト
+**Zustand Store（61テスト）**
+- `authStore.test.ts` - 認証ストア（ログイン、ログアウト、セッション管理）
+- `saleStore.test.ts` - 会計ストア（カート操作、税計算、支払い処理）
+- `uiStore.test.ts` - UIストア（モーダル、ローディング、通知）
+
+**ユーティリティ（79テスト）**
+- `validation.test.ts` - 入力バリデーション（電話番号、メール、日付等）
+- `security.test.ts` - セキュリティ機能（XSS対策、サニタイズ等）
+
+**APIサービス（24テスト）**
+- `customerService.test.ts` - 顧客CRUD操作
+- `subscriptionService.test.ts` - SaaSサブスクリプション管理
+
+#### 統合テスト（227テスト）
+
+| テストファイル | テスト数 | 対象 |
+|---------------|---------|------|
+| `allBusinessFlows.test.ts` | 48 | 全14業務フローの網羅的テスト |
+| `bookingFlowIntegration.test.ts` | 15 | 予約・来店・会計フロー |
+| `customerCancellationIntegration.test.ts` | 21 | 顧客・キャンセルポリシー |
+| `reservationToSaleFlow.test.ts` | 9 | 予約→来店→売上基本フロー |
+| `complexBusinessScenarios.test.ts` | 24 | 複合会計・複数支払い |
+| `irregularScenarios.test.ts` | 18 | キャンセル・ブラックリスト |
+| `coreServicesIntegration.test.ts` | 18 | 認証・会社・店舗・スタッフ |
+| `operationsIntegration.test.ts` | 21 | シフト・来店・ポイント・タグ |
+| `salesItemsIntegration.test.ts` | 21 | 回数券・クーポン・メニュー・商品 |
+| `reportingIntegration.test.ts` | 15 | 通知・日報・会員ランク・印刷 |
+| `externalServicesIntegration.test.ts` | 17 | AI・LINE・SMS・メール連携 |
+
+### CRUD操作カバレッジ
+
+各サービスのCRUD操作テスト状況：
+
+| サービス | Create | Read | Update | Delete | 備考 |
+|----------|:------:|:----:|:------:|:------:|------|
+| reservationService | ✅ | ✅ | ✅ | ✅ | キャンセルは論理削除 |
+| visitService | ✅ | ✅ | ✅ | ✅ | ステータス遷移でカバー |
+| saleService | ✅ | ✅ | ✅ | ✅ | void処理でカバー |
+| customerService | ✅ | ✅ | ✅ | ✅ | カルテ・写真含む |
+| staffService | ✅ | ✅ | ✅ | ✅ | 店舗配属含む |
+| menuService | ✅ | ✅ | ✅ | ✅ | カテゴリ・工程含む |
+| productService | ✅ | ✅ | ✅ | ✅ | 在庫調整含む |
+| ticketService | ✅ | ✅ | ✅ | ✅ | 使用・キャンセル含む |
+| couponService | ✅ | ✅ | ✅ | - | 削除は実運用で稀 |
+| pointService | ✅ | ✅ | ✅ | - | 付与・使用でカバー |
+| shiftService | ✅ | ✅ | ✅ | ✅ | 週コピー機能含む |
+| cancellationService | ✅ | ✅ | ✅ | - | ポリシー管理 |
+| dailyReportService | ✅ | ✅ | ✅ | - | 締め処理でカバー |
+| notificationService | ✅ | ✅ | ✅ | - | 既読処理でカバー |
+
+### 統合テストシナリオ
+
+**フロー1: 標準予約フロー**
+```
+新規予約 → 確認 → チェックイン → 施術開始 → 施術終了 → 会計 → チェックアウト
+```
+
+**フロー2: キャンセルフロー**
+```
+予約 → キャンセル（時間帯別料金: 48h前=0% / 24-48h=30% / 24h以内=50% / NoShow=100%）
+```
+
+**フロー3: 複合会計フロー**
+```
+メニュー+商品 → クーポン適用 → ポイント利用 → 複数支払い → 会計完了
+```
+
+**フロー4: 回数券フロー**
+```
+回数券購入 → 回数券使用 → 残数更新 → 完全消化 → ステータス更新
+```
+
+**フロー5: エンドツーエンド**
+```
+新規顧客登録 → 予約 → 来店 → 施術 → 会計 → ポイント付与 → 会員ランクアップ
+```
 
 ### Zustandストアのテスト例
 
