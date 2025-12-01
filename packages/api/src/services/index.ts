@@ -182,3 +182,42 @@ export type {
   ReminderStats,
   UpcomingReminder,
 } from './reminderSchedulerService';
+
+export { lineService } from './lineService';
+export type {
+  LineConfig,
+  LineMessage,
+  LinePushRequest,
+  LineUserProfile,
+  LineWebhookEvent,
+} from './lineService';
+
+export { smsService } from './smsService';
+export type {
+  SmsConfig,
+  SendSmsRequest,
+  SendSmsResult,
+} from './smsService';
+
+export { emailService } from './emailService';
+export type {
+  EmailConfig,
+  SendEmailRequest,
+  SendEmailResult,
+} from './emailService';
+
+export { cancellationService } from './cancellationService';
+export type {
+  CancellationPolicy,
+  CancellationRule,
+  CancellationFeeResult,
+  CustomerCancellationHistory,
+} from './cancellationService';
+
+export { memberRankService } from './memberRankService';
+export type {
+  MemberRank,
+  MemberRankConfig,
+  CustomerRankInfo,
+  RankChangeRecord,
+} from './memberRankService';

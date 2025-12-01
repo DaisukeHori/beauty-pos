@@ -5,12 +5,12 @@
 | カテゴリ | 完了 | 未完了 |
 |---------|------|--------|
 | DBスキーマ | 20 | 0 |
-| APIサービス | 20 | 0 |
+| APIサービス | 26 | 0 |
 | Zustand Store | 13 | 5 |
-| 画面UI | 17 | 8 |
+| 画面UI | 18 | 7 |
 | 画面↔API連携 | 2 | 23 |
 | Edge Functions | 14 | 2 |
-| 外部連携 | 2 | 6 |
+| 外部連携 | 5 | 3 |
 | テスト | 0 | 25+ |
 | 権限・セキュリティ | 3 | 2 |
 
@@ -60,6 +60,11 @@
 - [x] `packages/api/src/services/printService.ts` - 印刷サービス
 - [x] `packages/api/src/services/staffPerformanceService.ts` - スタッフパフォーマンス・ランキング
 - [x] `packages/api/src/services/reminderSchedulerService.ts` - リマインダースケジューラ
+- [x] `packages/api/src/services/lineService.ts` - LINE通知連携
+- [x] `packages/api/src/services/smsService.ts` - SMS通知
+- [x] `packages/api/src/services/emailService.ts` - メール通知
+- [x] `packages/api/src/services/cancellationService.ts` - キャンセルポリシー・ペナルティ
+- [x] `packages/api/src/services/memberRankService.ts` - 会員ランク管理
 
 ### 1.5 不足Store追加
 - [x] `packages/core/src/stores/checkoutStore.ts` - 会計状態管理
@@ -186,10 +191,10 @@
 - [ ] スタッフ別売上画面 `apps/staff/app/reports/staff-sales.tsx`
 - [ ] 顧客分析画面 `apps/staff/app/reports/customer-analysis.tsx`
 - [ ] 在庫管理画面 `apps/staff/app/admin/inventory.tsx`
-- [ ] クーポン管理画面 `apps/staff/app/admin/coupons.tsx`
-- [ ] 回数券管理画面 `apps/staff/app/admin/tickets.tsx`
+- [x] クーポン管理画面 `apps/staff/app/admin/coupons.tsx`
+- [x] 回数券管理画面 `apps/staff/app/admin/tickets.tsx`
 - [ ] 日報画面 `apps/staff/app/daily-report.tsx`
-- [ ] 赤伝処理画面 `apps/staff/app/void-sale.tsx`
+- [x] 売上履歴・赤伝票画面 `apps/staff/app/admin/sales-history.tsx`
 
 ---
 
@@ -268,17 +273,32 @@
 - [ ] 顧客情報同期
 
 ### 4.6 プッシュ通知
-- [ ] Expo Notifications セットアップ
+- [x] Expo Notifications セットアップ
 - [ ] FCM/APNs設定
-- [ ] 予約リマインダー
+- [x] 予約リマインダー
 - [ ] キャンペーン通知
 
-### 4.7 レシートプリンター
+### 4.7 LINE通知
+- [x] LINE Messaging API サービス実装
+- [x] 予約リマインダー送信
+- [x] 予約確認送信
+- [x] 来店お礼メッセージ
+- [ ] リッチメニュー設定UI
+- [ ] Webhook受信処理（Edge Function）
+
+### 4.8 SMS/メール通知
+- [x] SMS送信サービス（Twilio/Vonage対応）
+- [x] メール送信サービス（SendGrid/Mailgun対応）
+- [x] 予約リマインダーテンプレート
+- [x] 予約確認テンプレート
+- [ ] 通知設定UI
+
+### 4.9 レシートプリンター
 - [ ] Star/Epson SDK調査
 - [ ] Bluetooth接続実装
 - [ ] 印刷フォーマット調整
 
-### 4.8 キャッシュドロワー
+### 4.10 キャッシュドロワー
 - [ ] ドロワー連携調査
 - [ ] 開閉API実装
 - [ ] 入出金記録

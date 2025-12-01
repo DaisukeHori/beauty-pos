@@ -1610,6 +1610,176 @@ interface StaffShift {
 // 例: 9:00-18:00シフト、60分休憩 → 13:00-14:00が休憩
 ```
 
+### 8.5 LINE通知連携
+
+```typescript
+// packages/api/src/services/lineService.ts
+
+interface LineConfig {
+  channelAccessToken: string;
+  channelSecret: string;
+  webhookUrl?: string;
+}
+
+interface LineMessage {
+  type: 'text' | 'flex' | 'template';
+  text?: string;
+  altText?: string;
+  contents?: Record<string, unknown>; // Flex Message
+}
+
+// 主要API
+lineService.getConfig(companyId);
+lineService.saveConfig(companyId, config);
+lineService.sendTextMessage(companyId, lineUserId, text);
+lineService.sendReservationReminder(companyId, lineUserId, details);
+lineService.sendReservationConfirmation(companyId, lineUserId, details);
+lineService.sendThankYouMessage(companyId, lineUserId, details);
+lineService.linkCustomer(customerId, lineUserId);
+lineService.findCustomerByLineId(companyId, lineUserId);
+lineService.processWebhookEvent(companyId, event);
+```
+
+### 8.6 SMS/メール通知
+
+```typescript
+// packages/api/src/services/smsService.ts
+
+interface SmsConfig {
+  provider: 'twilio' | 'aws_sns' | 'vonage';
+  accountSid?: string;
+  authToken?: string;
+  fromNumber: string;
+}
+
+// 主要API
+smsService.send(companyId, { to, message });
+smsService.sendReservationReminder(companyId, phone, details);
+smsService.sendReservationConfirmation(companyId, phone, details);
+
+// packages/api/src/services/emailService.ts
+
+interface EmailConfig {
+  provider: 'sendgrid' | 'ses' | 'mailgun' | 'smtp';
+  apiKey?: string;
+  fromEmail: string;
+  fromName: string;
+}
+
+// 主要API
+emailService.send(companyId, { to, subject, text, html });
+emailService.sendReservationReminder(companyId, email, details);
+emailService.sendReservationConfirmation(companyId, email, details);
+emailService.sendThankYouEmail(companyId, email, details);
+```
+
+### 8.7 キャンセルポリシー・ペナルティ管理
+
+```typescript
+// packages/api/src/services/cancellationService.ts
+
+interface CancellationPolicy {
+  id: string;
+  companyId: string;
+  name: string;
+  rules: CancellationRule[];      // 時間帯別料金ルール
+  noShowFeePercentage: number;    // 無断キャンセル料率
+  maxNoShowsBeforeBlacklist: number; // ブラックリスト閾値
+}
+
+interface CancellationRule {
+  hoursBeforeAppointment: number; // 例: 24
+  feePercentage: number;          // 例: 50
+  description: string;            // "24時間以内のキャンセル"
+}
+
+interface CancellationFeeResult {
+  feePercentage: number;
+  feeAmount: number;
+  ruleApplied: string;
+  isNoShow: boolean;
+}
+
+// 主要API
+cancellationService.getPolicy(companyId, storeId);
+cancellationService.savePolicy(policy);
+cancellationService.calculateFee(reservationId, isNoShow);
+cancellationService.processCancellation(reservationId, reason, isNoShow, waiveFee);
+cancellationService.getCustomerHistory(companyId, customerId);
+cancellationService.blacklistCustomer(companyId, customerId, reason);
+cancellationService.getAtRiskCustomers(companyId);
+```
+
+### 8.8 会員ランク管理
+
+```typescript
+// packages/api/src/services/memberRankService.ts
+
+interface MemberRank {
+  id: string;
+  companyId: string;
+  name: string;                 // "シルバー", "ゴールド", etc.
+  level: number;                // 1, 2, 3, 4
+  color: string;                // "#C0C0C0"
+  minSpend?: number;            // 最低利用金額
+  minVisits?: number;           // 最低来店回数
+  pointMultiplier: number;      // ポイント倍率
+  discountPercentage: number;   // 割引率
+  benefits: string[];           // 特典説明
+}
+
+interface MemberRankConfig {
+  companyId: string;
+  calculationBasis: 'spend' | 'visits' | 'points' | 'combined';
+  calculationPeriodMonths: number; // 計算期間（0=永久）
+  autoDowngrade: boolean;          // 自動降格
+}
+
+interface CustomerRankInfo {
+  customerId: string;
+  currentRank: MemberRank;
+  nextRank?: MemberRank;
+  totalSpend: number;
+  spendToNextRank?: number;
+  visitsToNextRank?: number;
+  rankHistory: RankChangeRecord[];
+}
+
+// 主要API
+memberRankService.getRanks(companyId);
+memberRankService.getConfig(companyId);
+memberRankService.getCustomerRankInfo(companyId, customerId);
+memberRankService.checkAndUpdateRank(companyId, customerId);
+memberRankService.getCustomerDiscount(companyId, customerId);
+memberRankService.getPointMultiplier(companyId, customerId);
+memberRankService.processAllCustomerRanks(companyId);
+```
+
+### 8.9 売上履歴・赤伝票UI
+
+```typescript
+// apps/staff/app/admin/sales-history.tsx
+
+// 機能概要
+// - 日付別売上一覧表示
+// - 完了売上と取消済み（赤伝票）のタブ切り替え
+// - 売上詳細モーダル
+// - 取消処理（赤伝票発行）モーダル
+// - 権限チェック（void_sales権限必要）
+
+// 使用API
+saleService.getDailySales(storeId, date);      // 日別売上取得
+saleService.getVoidedSales(storeId, start, end); // 取消済み取得
+saleService.void(id, reason, voidedBy);          // 売上取消
+
+// 取消処理フロー
+// 1. 取消理由入力（必須）
+// 2. void_sales権限チェック
+// 3. saleService.void() 呼び出し
+// 4. ポイント自動戻し（付与分取消、使用分復元）
+// 5. 顧客の合計利用金額更新
+```
+
 ---
 
 **以上**

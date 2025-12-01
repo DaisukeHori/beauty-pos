@@ -506,6 +506,57 @@ export const saleService = {
     return count || 0;
   },
 
+  async getDailySales(storeId: string, date: string): Promise<SaleWithDetails[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sales')
+      .select(`
+        *,
+        items:sale_items(
+          *,
+          staff_assignments:sale_item_staff_assignments(*),
+          process_assignments:sale_item_process_assignments(*)
+        ),
+        payments:sale_payments(*),
+        discounts:sale_discounts(*),
+        customer:customers(*),
+        store:stores(*)
+      `)
+      .eq('store_id', storeId)
+      .gte('sale_date', `${date}T00:00:00`)
+      .lte('sale_date', `${date}T23:59:59`)
+      .order('sale_date', { ascending: false });
+
+    if (error) throw error;
+    return data as SaleWithDetails[] || [];
+  },
+
+  async getVoidedSales(storeId: string, startDate: string, endDate: string): Promise<SaleWithDetails[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sales')
+      .select(`
+        *,
+        items:sale_items(
+          *,
+          staff_assignments:sale_item_staff_assignments(*),
+          process_assignments:sale_item_process_assignments(*)
+        ),
+        payments:sale_payments(*),
+        discounts:sale_discounts(*),
+        customer:customers(*),
+        store:stores(*)
+      `)
+      .eq('store_id', storeId)
+      .eq('status', 'voided')
+      .gte('sale_date', `${startDate}T00:00:00`)
+      .lte('sale_date', `${endDate}T23:59:59`)
+      .order('voided_at', { ascending: false });
+
+    if (error) throw error;
+    return data as SaleWithDetails[] || [];
+  },
+
   // Get staff sales and productivity
   async getStaffSales(staffId: string, startDate: string, endDate: string) {
     const supabase = getSupabaseClient();
