@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,110 +10,29 @@ import {
   Switch,
   Alert,
   FlatList,
-  Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Card, Button, Badge, Avatar, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { useAuthStore, useUIStore } from '@beauty-pos/core';
+import { staffService, Staff } from '@beauty-pos/api';
 
-interface StaffMember {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  role: 'admin' | 'manager' | 'stylist' | 'assistant';
-  position: string;
-  imageUrl: string;
-  isActive: boolean;
-  nominationFee: number;
-  freeNominationFee: number;
-  canReceiveNomination: boolean;
-  specialties: string[];
-  joinDate: string;
-  birthDate: string;
-}
-
-type StaffRole = 'admin' | 'manager' | 'stylist' | 'assistant';
+type StaffRole = 'owner' | 'manager' | 'stylist' | 'assistant';
 
 const roleLabels: Record<StaffRole, string> = {
-  admin: '管理者',
+  owner: 'オーナー',
   manager: '店長',
   stylist: 'スタイリスト',
   assistant: 'アシスタント',
 };
 
 const roleColors: Record<StaffRole, 'primary' | 'success' | 'info' | 'neutral'> = {
-  admin: 'primary',
+  owner: 'primary',
   manager: 'success',
   stylist: 'info',
   assistant: 'neutral',
 };
-
-const mockStaff: StaffMember[] = [
-  {
-    id: '1',
-    name: '田中 美咲',
-    email: 'tanaka@sakura-salon.jp',
-    phone: '090-1234-5678',
-    role: 'manager',
-    position: '店長',
-    imageUrl: '',
-    isActive: true,
-    nominationFee: 550,
-    freeNominationFee: 0,
-    canReceiveNomination: true,
-    specialties: ['カット', 'カラー', 'パーマ'],
-    joinDate: '2018-04-01',
-    birthDate: '1990-05-15',
-  },
-  {
-    id: '2',
-    name: '佐藤 健一',
-    email: 'sato@sakura-salon.jp',
-    phone: '090-2345-6789',
-    role: 'stylist',
-    position: 'トップスタイリスト',
-    imageUrl: '',
-    isActive: true,
-    nominationFee: 550,
-    freeNominationFee: 0,
-    canReceiveNomination: true,
-    specialties: ['カット', 'メンズカット', 'パーマ'],
-    joinDate: '2019-07-01',
-    birthDate: '1988-03-20',
-  },
-  {
-    id: '3',
-    name: '山田 花子',
-    email: 'yamada@sakura-salon.jp',
-    phone: '090-3456-7890',
-    role: 'stylist',
-    position: 'スタイリスト',
-    imageUrl: '',
-    isActive: true,
-    nominationFee: 330,
-    freeNominationFee: 0,
-    canReceiveNomination: true,
-    specialties: ['カット', 'カラー', 'ヘアセット'],
-    joinDate: '2021-04-01',
-    birthDate: '1995-08-10',
-  },
-  {
-    id: '4',
-    name: '鈴木 太郎',
-    email: 'suzuki@sakura-salon.jp',
-    phone: '090-4567-8901',
-    role: 'assistant',
-    position: 'アシスタント',
-    imageUrl: '',
-    isActive: true,
-    nominationFee: 0,
-    freeNominationFee: 0,
-    canReceiveNomination: false,
-    specialties: ['シャンプー', 'ヘッドスパ'],
-    joinDate: '2023-04-01',
-    birthDate: '2001-12-25',
-  },
-];
 
 const specialtyOptions = [
   'カット',
@@ -128,85 +47,152 @@ const specialtyOptions = [
   'メイク',
 ];
 
-const emptyStaff: Omit<StaffMember, 'id'> = {
-  name: '',
+interface FormData {
+  lastName: string;
+  firstName: string;
+  lastNameKana: string;
+  firstNameKana: string;
+  email: string;
+  phone: string;
+  role: StaffRole;
+  position: string;
+  isActive: boolean;
+  nominationFee: number;
+  canReceiveNomination: boolean;
+  specialties: string[];
+  hireDate: string;
+  birthDate: string;
+  bio: string;
+}
+
+const emptyFormData: FormData = {
+  lastName: '',
+  firstName: '',
+  lastNameKana: '',
+  firstNameKana: '',
   email: '',
   phone: '',
   role: 'stylist',
   position: '',
-  imageUrl: '',
   isActive: true,
   nominationFee: 0,
-  freeNominationFee: 0,
   canReceiveNomination: true,
   specialties: [],
-  joinDate: new Date().toISOString().split('T')[0],
+  hireDate: new Date().toISOString().split('T')[0],
   birthDate: '',
+  bio: '',
 };
 
 export default function StaffManagementScreen() {
-  const [staffList, setStaffList] = useState<StaffMember[]>(mockStaff);
+  const { company, store } = useAuthStore();
+  const { showToast } = useUIStore();
+
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('すべて');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState<StaffMember | null>(null);
-  const [formData, setFormData] = useState<Omit<StaffMember, 'id'>>(emptyStaff);
+  const [editingItem, setEditingItem] = useState<Staff | null>(null);
+  const [formData, setFormData] = useState<FormData>(emptyFormData);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadStaff = useCallback(async () => {
+    if (!company?.id) return;
+
+    try {
+      // If store is selected, get staff for that store; otherwise get all company staff
+      let staffData: Staff[];
+      if (store?.id) {
+        staffData = await staffService.getByStore(store.id);
+      } else {
+        staffData = await staffService.getAll(company.id);
+      }
+      setStaffList(staffData);
+    } catch (error) {
+      console.error('Error loading staff:', error);
+      showToast('スタッフ情報の取得に失敗しました', 'error');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [company?.id, store?.id, showToast]);
+
+  useEffect(() => {
+    loadStaff();
+  }, [loadStaff]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadStaff();
+  };
 
   const filteredStaff = staffList.filter((staff) => {
+    const fullName = `${staff.last_name} ${staff.first_name}`;
     const matchesSearch =
       searchQuery === '' ||
-      staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      staff.email.toLowerCase().includes(searchQuery.toLowerCase());
+      fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (staff.email && staff.email.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesRole =
-      selectedRole === 'すべて' || roleLabels[staff.role] === selectedRole;
+      selectedRole === 'すべて' || roleLabels[staff.role as StaffRole] === selectedRole;
     return matchesSearch && matchesRole;
   });
 
   const handleAdd = () => {
     setEditingItem(null);
-    setFormData({ ...emptyStaff });
+    setFormData({ ...emptyFormData });
     setIsModalVisible(true);
   };
 
-  const handleEdit = (item: StaffMember) => {
+  const handleEdit = (item: Staff) => {
     setEditingItem(item);
     setFormData({
-      name: item.name,
-      email: item.email,
-      phone: item.phone,
-      role: item.role,
-      position: item.position,
-      imageUrl: item.imageUrl,
-      isActive: item.isActive,
-      nominationFee: item.nominationFee,
-      freeNominationFee: item.freeNominationFee,
-      canReceiveNomination: item.canReceiveNomination,
-      specialties: [...item.specialties],
-      joinDate: item.joinDate,
-      birthDate: item.birthDate,
+      lastName: item.last_name || '',
+      firstName: item.first_name || '',
+      lastNameKana: item.last_name_kana || '',
+      firstNameKana: item.first_name_kana || '',
+      email: item.email || '',
+      phone: item.phone || '',
+      role: (item.role as StaffRole) || 'stylist',
+      position: item.rank || '',
+      isActive: item.is_active,
+      nominationFee: item.nomination_fee || 0,
+      canReceiveNomination: (item.nomination_fee || 0) > 0 || item.role === 'stylist',
+      specialties: item.specialties || [],
+      hireDate: item.hire_date || '',
+      birthDate: item.birth_date || '',
+      bio: item.bio || '',
     });
     setIsModalVisible(true);
   };
 
-  const handleDelete = (item: StaffMember) => {
+  const handleDelete = (item: Staff) => {
+    const fullName = `${item.last_name} ${item.first_name}`;
     Alert.alert(
       'スタッフ削除',
-      `「${item.name}」を削除しますか？\n※削除されたスタッフの売上データは「削除済みスタッフ」として表示されます`,
+      `「${fullName}」を削除しますか？\n※削除されたスタッフの売上データは「削除済みスタッフ」として表示されます`,
       [
         { text: 'キャンセル', style: 'cancel' },
         {
           text: '削除',
           style: 'destructive',
-          onPress: () => {
-            setStaffList((prev) => prev.filter((s) => s.id !== item.id));
+          onPress: async () => {
+            try {
+              await staffService.delete(item.id);
+              showToast('スタッフを削除しました', 'success');
+              loadStaff();
+            } catch (error) {
+              console.error('Error deleting staff:', error);
+              showToast('スタッフの削除に失敗しました', 'error');
+            }
           },
         },
       ]
     );
   };
 
-  const handleSave = () => {
-    if (!formData.name.trim()) {
+  const handleSave = async () => {
+    if (!formData.lastName.trim() || !formData.firstName.trim()) {
       Alert.alert('エラー', 'スタッフ名を入力してください');
       return;
     }
@@ -214,22 +200,72 @@ export default function StaffManagementScreen() {
       Alert.alert('エラー', 'メールアドレスを入力してください');
       return;
     }
-
-    if (editingItem) {
-      setStaffList((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id ? { ...formData, id: item.id } : item
-        )
-      );
-    } else {
-      const newItem: StaffMember = {
-        ...formData,
-        id: Date.now().toString(),
-      };
-      setStaffList((prev) => [...prev, newItem]);
+    if (!company?.id) {
+      Alert.alert('エラー', '会社情報が取得できません');
+      return;
     }
 
-    setIsModalVisible(false);
+    setIsSaving(true);
+    try {
+      if (editingItem) {
+        // Update existing staff
+        await staffService.update(editingItem.id, {
+          last_name: formData.lastName,
+          first_name: formData.firstName,
+          last_name_kana: formData.lastNameKana || null,
+          first_name_kana: formData.firstNameKana || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          role: formData.role,
+          rank: formData.position || null,
+          is_active: formData.isActive,
+          nomination_fee: formData.canReceiveNomination ? formData.nominationFee : 0,
+          specialties: formData.specialties,
+          hire_date: formData.hireDate || null,
+          birth_date: formData.birthDate || null,
+          bio: formData.bio || null,
+        });
+        showToast('スタッフを更新しました', 'success');
+      } else {
+        // Create new staff
+        const employeeCode = await staffService.generateEmployeeCode(company.id);
+        const newStaff = await staffService.create({
+          company_id: company.id,
+          employee_code: employeeCode,
+          last_name: formData.lastName,
+          first_name: formData.firstName,
+          last_name_kana: formData.lastNameKana || null,
+          first_name_kana: formData.firstNameKana || null,
+          email: formData.email,
+          phone: formData.phone || null,
+          role: formData.role,
+          rank: formData.position || null,
+          is_active: formData.isActive,
+          nomination_fee: formData.canReceiveNomination ? formData.nominationFee : 0,
+          specialties: formData.specialties,
+          hire_date: formData.hireDate || null,
+          birth_date: formData.birthDate || null,
+          bio: formData.bio || null,
+          sns_links: {},
+          settings: {},
+        });
+
+        // Assign to current store if available
+        if (store?.id && newStaff) {
+          await staffService.assignToStore(newStaff.id, store.id, true);
+        }
+
+        showToast('スタッフを追加しました', 'success');
+      }
+
+      setIsModalVisible(false);
+      loadStaff();
+    } catch (error) {
+      console.error('Error saving staff:', error);
+      showToast(editingItem ? 'スタッフの更新に失敗しました' : 'スタッフの追加に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const toggleSpecialty = (specialty: string) => {
@@ -241,15 +277,40 @@ export default function StaffManagementScreen() {
     }));
   };
 
-  const toggleActive = (item: StaffMember) => {
-    setStaffList((prev) =>
-      prev.map((s) =>
-        s.id === item.id ? { ...s, isActive: !s.isActive } : s
-      )
-    );
+  const toggleActive = async (item: Staff) => {
+    try {
+      await staffService.update(item.id, {
+        is_active: !item.is_active,
+      });
+      showToast(
+        item.is_active ? 'スタッフを休止にしました' : 'スタッフをアクティブにしました',
+        'success'
+      );
+      loadStaff();
+    } catch (error) {
+      console.error('Error toggling staff active status:', error);
+      showToast('ステータスの変更に失敗しました', 'error');
+    }
   };
 
-  const renderStaffItem = ({ item }: { item: StaffMember }) => (
+  const getDisplayName = (staff: Staff) => {
+    return `${staff.last_name} ${staff.first_name}`;
+  };
+
+  const getPositionLabel = (staff: Staff) => {
+    if (staff.rank) {
+      switch (staff.rank) {
+        case 'jr': return 'ジュニアスタイリスト';
+        case 'stylist': return 'スタイリスト';
+        case 'top_stylist': return 'トップスタイリスト';
+        case 'director': return 'ディレクター';
+        default: return staff.rank;
+      }
+    }
+    return roleLabels[staff.role as StaffRole] || staff.role;
+  };
+
+  const renderStaffItem = ({ item }: { item: Staff }) => (
     <Card variant="outlined" size="md" style={styles.staffCard}>
       <TouchableOpacity
         style={styles.staffCardContent}
@@ -258,26 +319,26 @@ export default function StaffManagementScreen() {
       >
         <View style={styles.staffHeader}>
           <Avatar
-            name={item.name}
+            name={getDisplayName(item)}
             size="lg"
-            imageUrl={item.imageUrl || undefined}
+            imageUrl={item.avatar_url || undefined}
           />
           <View style={styles.staffInfo}>
             <View style={styles.staffNameRow}>
-              <Text style={styles.staffName}>{item.name}</Text>
-              {!item.isActive && (
+              <Text style={styles.staffName}>{getDisplayName(item)}</Text>
+              {!item.is_active && (
                 <Badge colorScheme="neutral" variant="subtle" size="sm">
                   休止中
                 </Badge>
               )}
             </View>
-            <Text style={styles.staffPosition}>{item.position}</Text>
+            <Text style={styles.staffPosition}>{getPositionLabel(item)}</Text>
             <Badge
-              colorScheme={roleColors[item.role]}
+              colorScheme={roleColors[item.role as StaffRole] || 'neutral'}
               variant="subtle"
               size="sm"
             >
-              {roleLabels[item.role]}
+              {roleLabels[item.role as StaffRole] || item.role}
             </Badge>
           </View>
         </View>
@@ -285,27 +346,33 @@ export default function StaffManagementScreen() {
         <View style={styles.staffDetails}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>メール</Text>
-            <Text style={styles.detailValue}>{item.email}</Text>
+            <Text style={styles.detailValue}>{item.email || '-'}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>電話</Text>
-            <Text style={styles.detailValue}>{item.phone}</Text>
+            <Text style={styles.detailValue}>{item.phone || '-'}</Text>
           </View>
-          {item.canReceiveNomination && (
+          {item.nomination_fee && item.nomination_fee > 0 && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>指名料</Text>
               <Text style={styles.detailValue}>
-                ¥{item.nominationFee.toLocaleString()}
+                ¥{item.nomination_fee.toLocaleString()}
               </Text>
+            </View>
+          )}
+          {item.employee_code && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>社員番号</Text>
+              <Text style={styles.detailValue}>{item.employee_code}</Text>
             </View>
           )}
         </View>
 
-        {item.specialties.length > 0 && (
+        {item.specialties && item.specialties.length > 0 && (
           <View style={styles.specialtiesContainer}>
             <Text style={styles.specialtiesLabel}>担当技術:</Text>
             <View style={styles.specialtiesTags}>
-              {item.specialties.map((specialty, index) => (
+              {item.specialties.map((specialty: string, index: number) => (
                 <Badge
                   key={index}
                   colorScheme="primary"
@@ -326,7 +393,7 @@ export default function StaffManagementScreen() {
             onPress={() => toggleActive(item)}
           >
             <Text style={styles.actionButtonText}>
-              {item.isActive ? '休止にする' : 'アクティブにする'}
+              {item.is_active ? '休止にする' : 'アクティブにする'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -341,6 +408,15 @@ export default function StaffManagementScreen() {
       </TouchableOpacity>
     </Card>
   );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -389,28 +465,31 @@ export default function StaffManagementScreen() {
               selectedRole === 'すべて' && styles.roleTextActive,
             ]}
           >
-            すべて
+            すべて ({staffList.length})
           </Text>
         </TouchableOpacity>
-        {Object.entries(roleLabels).map(([role, label]) => (
-          <TouchableOpacity
-            key={role}
-            style={[
-              styles.roleButton,
-              selectedRole === label && styles.roleButtonActive,
-            ]}
-            onPress={() => setSelectedRole(label)}
-          >
-            <Text
+        {Object.entries(roleLabels).map(([role, label]) => {
+          const count = staffList.filter((s) => s.role === role).length;
+          return (
+            <TouchableOpacity
+              key={role}
               style={[
-                styles.roleText,
-                selectedRole === label && styles.roleTextActive,
+                styles.roleButton,
+                selectedRole === label && styles.roleButtonActive,
               ]}
+              onPress={() => setSelectedRole(label)}
             >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Text
+                style={[
+                  styles.roleText,
+                  selectedRole === label && styles.roleTextActive,
+                ]}
+              >
+                {label} ({count})
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Staff List */}
@@ -419,10 +498,25 @@ export default function StaffManagementScreen() {
         renderItem={renderStaffItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary[500]]}
+            tintColor={colors.primary[500]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>スタッフがいません</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? '検索結果がありません' : 'スタッフがいません'}
+            </Text>
+            {!searchQuery && (
+              <Button size="sm" variant="outline" onPress={handleAdd} style={{ marginTop: spacing[4] }}>
+                スタッフを追加
+              </Button>
+            )}
           </View>
         }
       />
@@ -436,27 +530,66 @@ export default function StaffManagementScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-              <Text style={styles.modalCancel}>キャンセル</Text>
+            <TouchableOpacity onPress={() => setIsModalVisible(false)} disabled={isSaving}>
+              <Text style={[styles.modalCancel, isSaving && { opacity: 0.5 }]}>キャンセル</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>
               {editingItem ? 'スタッフ編集' : 'スタッフ追加'}
             </Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.modalSave}>保存</Text>
+            <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.primary[600]} />
+              ) : (
+                <Text style={styles.modalSave}>保存</Text>
+              )}
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalContent}>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>スタッフ名 *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={(v) => setFormData((prev) => ({ ...prev, name: v }))}
-                placeholder="氏名を入力"
-                placeholderTextColor={colors.neutral[400]}
-              />
+            <View style={styles.formRow}>
+              <View style={[styles.formGroup, styles.formGroupHalf]}>
+                <Text style={styles.label}>姓 *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.lastName}
+                  onChangeText={(v) => setFormData((prev) => ({ ...prev, lastName: v }))}
+                  placeholder="山田"
+                  placeholderTextColor={colors.neutral[400]}
+                />
+              </View>
+              <View style={[styles.formGroup, styles.formGroupHalf]}>
+                <Text style={styles.label}>名 *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.firstName}
+                  onChangeText={(v) => setFormData((prev) => ({ ...prev, firstName: v }))}
+                  placeholder="太郎"
+                  placeholderTextColor={colors.neutral[400]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.formRow}>
+              <View style={[styles.formGroup, styles.formGroupHalf]}>
+                <Text style={styles.label}>姓（カナ）</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.lastNameKana}
+                  onChangeText={(v) => setFormData((prev) => ({ ...prev, lastNameKana: v }))}
+                  placeholder="ヤマダ"
+                  placeholderTextColor={colors.neutral[400]}
+                />
+              </View>
+              <View style={[styles.formGroup, styles.formGroupHalf]}>
+                <Text style={styles.label}>名（カナ）</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.firstNameKana}
+                  onChangeText={(v) => setFormData((prev) => ({ ...prev, firstNameKana: v }))}
+                  placeholder="タロウ"
+                  placeholderTextColor={colors.neutral[400]}
+                />
+              </View>
             </View>
 
             <View style={styles.formGroup}>
@@ -527,6 +660,21 @@ export default function StaffManagementScreen() {
             </View>
 
             <View style={styles.formGroup}>
+              <Text style={styles.label}>自己紹介</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.bio}
+                onChangeText={(v) =>
+                  setFormData((prev) => ({ ...prev, bio: v }))
+                }
+                placeholder="スタッフの紹介文を入力..."
+                placeholderTextColor={colors.neutral[400]}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
               <Text style={styles.label}>担当技術</Text>
               <View style={styles.specialtySelector}>
                 {specialtyOptions.map((specialty) => (
@@ -570,47 +718,25 @@ export default function StaffManagementScreen() {
             </View>
 
             {formData.canReceiveNomination && (
-              <View style={styles.formRow}>
-                <View style={[styles.formGroup, styles.formGroupHalf]}>
-                  <Text style={styles.label}>指名料</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={
-                      formData.nominationFee > 0
-                        ? formData.nominationFee.toString()
-                        : ''
-                    }
-                    onChangeText={(v) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        nominationFee: parseInt(v) || 0,
-                      }))
-                    }
-                    placeholder="550"
-                    placeholderTextColor={colors.neutral[400]}
-                    keyboardType="number-pad"
-                  />
-                </View>
-                <View style={[styles.formGroup, styles.formGroupHalf]}>
-                  <Text style={styles.label}>フリー指名料</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={
-                      formData.freeNominationFee > 0
-                        ? formData.freeNominationFee.toString()
-                        : ''
-                    }
-                    onChangeText={(v) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        freeNominationFee: parseInt(v) || 0,
-                      }))
-                    }
-                    placeholder="0"
-                    placeholderTextColor={colors.neutral[400]}
-                    keyboardType="number-pad"
-                  />
-                </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>指名料</Text>
+                <TextInput
+                  style={styles.input}
+                  value={
+                    formData.nominationFee > 0
+                      ? formData.nominationFee.toString()
+                      : ''
+                  }
+                  onChangeText={(v) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      nominationFee: parseInt(v) || 0,
+                    }))
+                  }
+                  placeholder="550"
+                  placeholderTextColor={colors.neutral[400]}
+                  keyboardType="number-pad"
+                />
               </View>
             )}
 
@@ -619,9 +745,9 @@ export default function StaffManagementScreen() {
                 <Text style={styles.label}>入社日</Text>
                 <TextInput
                   style={styles.input}
-                  value={formData.joinDate}
+                  value={formData.hireDate}
                   onChangeText={(v) =>
-                    setFormData((prev) => ({ ...prev, joinDate: v }))
+                    setFormData((prev) => ({ ...prev, hireDate: v }))
                   }
                   placeholder="2024-01-01"
                   placeholderTextColor={colors.neutral[400]}
@@ -669,6 +795,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[3],
   },
   header: {
     flexDirection: 'row',
@@ -896,6 +1033,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     ...textStyles.body,
     color: colors.neutral[900],
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   roleSelector: {
     flexDirection: 'row',
