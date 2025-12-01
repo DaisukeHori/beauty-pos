@@ -135,34 +135,34 @@ export const customerService = {
 
   async create(customer: CustomerInsert): Promise<Customer> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('customers')
-      .insert(customer)
+    const { data, error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .insert(customer as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Customer;
   },
 
   async update(id: string, updates: CustomerUpdate): Promise<Customer> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('customers')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Customer;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('customers')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -183,19 +183,19 @@ export const customerService = {
 
   async upsertKarte(customerId: string, karte: Partial<CustomerKarte>): Promise<CustomerKarte> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('customer_kartes')
+    const { data, error } = await (supabase
+      .from('customer_kartes') as ReturnType<typeof supabase.from>)
       .upsert({
         customer_id: customerId,
         ...karte,
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'customer_id',
       })
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as CustomerKarte;
   },
 
   // Photo operations
@@ -228,20 +228,20 @@ export const customerService = {
       .from('customer-photos')
       .getPublicUrl(filePath);
 
-    const { data, error } = await supabase
-      .from('customer_photos')
+    const { data, error } = await (supabase
+      .from('customer_photos') as ReturnType<typeof supabase.from>)
       .insert({
         customer_id: customerId,
         visit_id: visitId,
         photo_type: photoType,
         photo_url: urlData.publicUrl,
         taken_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as CustomerPhoto;
   },
 
   async deletePhoto(id: string): Promise<void> {
@@ -269,27 +269,27 @@ export const customerService = {
 
   async createColorRecipe(recipe: InsertTables<'color_recipes'>): Promise<ColorRecipe> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('color_recipes')
-      .insert(recipe)
+    const { data, error } = await (supabase
+      .from('color_recipes') as ReturnType<typeof supabase.from>)
+      .insert(recipe as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ColorRecipe;
   },
 
   async updateColorRecipe(id: string, updates: UpdateTables<'color_recipes'>): Promise<ColorRecipe> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('color_recipes')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('color_recipes') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ColorRecipe;
   },
 
   // Perm recipe operations
@@ -307,27 +307,27 @@ export const customerService = {
 
   async createPermRecipe(recipe: InsertTables<'perm_recipes'>): Promise<PermRecipe> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('perm_recipes')
-      .insert(recipe)
+    const { data, error } = await (supabase
+      .from('perm_recipes') as ReturnType<typeof supabase.from>)
+      .insert(recipe as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as PermRecipe;
   },
 
   async updatePermRecipe(id: string, updates: UpdateTables<'perm_recipes'>): Promise<PermRecipe> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('perm_recipes')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('perm_recipes') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as PermRecipe;
   },
 
   // Points operations
@@ -337,7 +337,7 @@ export const customerService = {
       .from('customers')
       .select('points_balance')
       .eq('id', customerId)
-      .single();
+      .single() as { data: { points_balance?: number } | null; error: unknown };
 
     if (error) throw error;
     return data?.points_balance || 0;
@@ -411,24 +411,24 @@ export const customerService = {
       .from('customers')
       .select('total_visits, total_spent')
       .eq('id', customerId)
-      .single();
+      .single() as { data: { total_visits?: number; total_spent?: number } | null; error: unknown };
 
     if (getError) throw getError;
 
     // Update stats
-    const { data, error } = await supabase
-      .from('customers')
+    const { data, error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         total_visits: (customer?.total_visits || 0) + 1,
         total_spent: (customer?.total_spent || 0) + saleAmount,
         last_visit_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Customer;
   },
 
   // Increment visit count only
@@ -440,23 +440,23 @@ export const customerService = {
       .from('customers')
       .select('total_visits')
       .eq('id', customerId)
-      .single();
+      .single() as { data: { total_visits?: number } | null; error: unknown };
 
     if (getError) throw getError;
 
     // Update visit count
-    const { data, error } = await supabase
-      .from('customers')
+    const { data, error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         total_visits: (customer?.total_visits || 0) + 1,
         last_visit_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Customer;
   },
 
   // Add to total spent only
@@ -468,21 +468,21 @@ export const customerService = {
       .from('customers')
       .select('total_spent')
       .eq('id', customerId)
-      .single();
+      .single() as { data: { total_spent?: number } | null; error: unknown };
 
     if (getError) throw getError;
 
     // Update total spent
-    const { data, error } = await supabase
-      .from('customers')
+    const { data, error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         total_spent: (customer?.total_spent || 0) + amount,
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Customer;
   },
 };

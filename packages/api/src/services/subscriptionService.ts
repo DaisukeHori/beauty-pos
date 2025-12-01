@@ -241,7 +241,7 @@ export const subscriptionService = {
       .from('companies')
       .select('id, name, email, phone, settings')
       .eq('id', companyId)
-      .single();
+      .single() as { data: { id: string; name: string; email?: string; phone?: string; settings?: Record<string, unknown> } | null; error: unknown };
 
     if (error || !data) return null;
 
@@ -276,7 +276,7 @@ export const subscriptionService = {
       .from('companies')
       .select('settings')
       .eq('id', companyId)
-      .single();
+      .single() as { data: { settings?: Record<string, unknown> } | null; error: unknown };
 
     const settings = (current?.settings as Record<string, unknown>) || {};
     const billing = (settings.billing as Record<string, unknown>) || {};
@@ -288,14 +288,14 @@ export const subscriptionService = {
       tax_id: billingInfo.tax_id,
     };
 
-    const { error } = await supabase
-      .from('companies')
+    const { error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
       .update({
         email: billingInfo.email,
         phone: billingInfo.phone,
         settings: { ...settings, billing: updatedBilling },
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', companyId);
 
     if (error) throw error;
@@ -347,13 +347,13 @@ export const subscriptionService = {
     if (error) throw new Error(error.message);
 
     // Update local subscription record
-    await supabase
-      .from('subscriptions')
+    await (supabase
+      .from('subscriptions') as ReturnType<typeof supabase.from>)
       .update({
         cancel_at_period_end: !cancelImmediately,
         status: cancelImmediately ? 'canceled' : 'active',
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('company_id', companyId);
   },
 
@@ -370,12 +370,12 @@ export const subscriptionService = {
     if (error) throw new Error(error.message);
 
     // Update local subscription record
-    await supabase
-      .from('subscriptions')
+    await (supabase
+      .from('subscriptions') as ReturnType<typeof supabase.from>)
       .update({
         cancel_at_period_end: false,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('company_id', companyId);
   },
 
