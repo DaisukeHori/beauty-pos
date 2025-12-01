@@ -63,27 +63,27 @@ export const ticketService = {
 
   async create(ticket: TicketInsert): Promise<Ticket> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert(ticket)
+    const { data, error } = await (supabase
+      .from('tickets') as ReturnType<typeof supabase.from>)
+      .insert(ticket as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Ticket;
   },
 
   async update(id: string, updates: TicketUpdate): Promise<Ticket> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tickets')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('tickets') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Ticket;
   },
 
   async use(
@@ -96,14 +96,16 @@ export const ticketService = {
     const supabase = getSupabaseClient();
 
     // Get current ticket
-    const { data: ticket, error: ticketError } = await supabase
+    const { data: ticketData, error: ticketError } = await supabase
       .from('tickets')
       .select('*')
       .eq('id', ticketId)
       .single();
 
     if (ticketError) throw ticketError;
-    if (!ticket) throw new Error('Ticket not found');
+    if (!ticketData) throw new Error('Ticket not found');
+
+    const ticket = ticketData as Ticket;
 
     // Validate ticket can be used
     if (ticket.status !== 'active') {
@@ -115,7 +117,7 @@ export const ticketService = {
     }
 
     // For count-based tickets
-    if (ticket.ticket_type === 'count' && ticket.remaining_uses < usesCount) {
+    if (ticket.ticket_type === 'count' && (ticket.remaining_uses || 0) < usesCount) {
       throw new Error('Not enough remaining uses');
     }
 
@@ -127,8 +129,8 @@ export const ticketService = {
     }
 
     // Create usage record
-    const { data: usage, error: usageError } = await supabase
-      .from('ticket_usages')
+    const { data: usage, error: usageError } = await (supabase
+      .from('ticket_usages') as ReturnType<typeof supabase.from>)
       .insert({
         ticket_id: ticketId,
         sale_id: saleId,
@@ -136,7 +138,7 @@ export const ticketService = {
         amount_used: amount,
         uses_count: usesCount,
         used_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -146,51 +148,51 @@ export const ticketService = {
     const updateData: TicketUpdate = {};
 
     if (ticket.ticket_type === 'count') {
-      updateData.remaining_uses = ticket.remaining_uses - usesCount;
-      if (updateData.remaining_uses <= 0) {
+      updateData.remaining_uses = (ticket.remaining_uses || 0) - usesCount;
+      if ((updateData.remaining_uses || 0) <= 0) {
         updateData.status = 'used';
       }
     } else if (ticket.ticket_type === 'amount' && amount) {
       updateData.remaining_amount = (ticket.remaining_amount || 0) - amount;
-      if (updateData.remaining_amount <= 0) {
+      if ((updateData.remaining_amount || 0) <= 0) {
         updateData.status = 'used';
       }
     }
 
     if (Object.keys(updateData).length > 0) {
-      await supabase
-        .from('tickets')
-        .update(updateData)
+      await (supabase
+        .from('tickets') as ReturnType<typeof supabase.from>)
+        .update(updateData as Record<string, unknown>)
         .eq('id', ticketId);
     }
 
-    return usage;
+    return usage as TicketUsage;
   },
 
   async cancel(id: string): Promise<Ticket> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tickets')
-      .update({ status: 'cancelled' })
+    const { data, error } = await (supabase
+      .from('tickets') as ReturnType<typeof supabase.from>)
+      .update({ status: 'cancelled' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Ticket;
   },
 
   async expire(id: string): Promise<Ticket> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tickets')
-      .update({ status: 'expired' })
+    const { data, error } = await (supabase
+      .from('tickets') as ReturnType<typeof supabase.from>)
+      .update({ status: 'expired' } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Ticket;
   },
 
   async getExpiring(companyId: string, withinDays: number = 30): Promise<Ticket[]> {
@@ -224,7 +226,8 @@ export const ticketService = {
 
     if (!ticket) return false;
 
-    const applicableMenuIds = ticket.applicable_menu_ids as string[] | null;
+    const ticketData = ticket as { applicable_menu_ids?: string[] | null };
+    const applicableMenuIds = ticketData.applicable_menu_ids;
 
     // If no restrictions, ticket is applicable to all menus
     if (!applicableMenuIds || applicableMenuIds.length === 0) {

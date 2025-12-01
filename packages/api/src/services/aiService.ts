@@ -32,14 +32,14 @@ export const aiService = {
   // Conversation Recording
   async createRecording(recording: InsertTables<'conversation_recordings'>): Promise<ConversationRecording> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('conversation_recordings')
-      .insert(recording)
+    const { data, error } = await (supabase
+      .from('conversation_recordings') as ReturnType<typeof supabase.from>)
+      .insert(recording as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ConversationRecording;
   },
 
   async getRecording(id: string): Promise<ConversationRecording | null> {
@@ -113,28 +113,28 @@ export const aiService = {
       updates.duration_seconds = durationSeconds;
     }
 
-    const { data, error } = await supabase
-      .from('conversation_recordings')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('conversation_recordings') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ConversationRecording;
   },
 
   // Transcription
   async createTranscript(transcript: InsertTables<'conversation_transcripts'>): Promise<ConversationTranscript> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('conversation_transcripts')
-      .insert(transcript)
+    const { data, error } = await (supabase
+      .from('conversation_transcripts') as ReturnType<typeof supabase.from>)
+      .insert(transcript as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ConversationTranscript;
   },
 
   async getTranscriptByRecording(recordingId: string): Promise<ConversationTranscript | null> {
@@ -152,14 +152,14 @@ export const aiService = {
   // Analysis
   async createAnalysis(analysis: InsertTables<'conversation_analyses'>): Promise<ConversationAnalysis> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('conversation_analyses')
-      .insert(analysis)
+    const { data, error } = await (supabase
+      .from('conversation_analyses') as ReturnType<typeof supabase.from>)
+      .insert(analysis as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as ConversationAnalysis;
   },
 
   async getAnalysisByTranscript(transcriptId: string): Promise<ConversationAnalysis | null> {
@@ -190,14 +190,14 @@ export const aiService = {
   // AI Suggestions
   async createSuggestion(suggestion: InsertTables<'ai_suggestions'>): Promise<AISuggestion> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('ai_suggestions')
-      .insert(suggestion)
+    const { data, error } = await (supabase
+      .from('ai_suggestions') as ReturnType<typeof supabase.from>)
+      .insert(suggestion as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as AISuggestion;
   },
 
   async getSuggestionsByVisit(visitId: string): Promise<AISuggestion[]> {
@@ -242,19 +242,19 @@ export const aiService = {
     outcome?: string
   ): Promise<AISuggestion> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('ai_suggestions')
+    const { data, error } = await (supabase
+      .from('ai_suggestions') as ReturnType<typeof supabase.from>)
       .update({
         status,
         staff_response: response,
         outcome,
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as AISuggestion;
   },
 
   async dismissSuggestion(id: string, reason?: string): Promise<AISuggestion> {
@@ -272,14 +272,14 @@ export const aiService = {
   // Hairstyle Simulation
   async createSimulation(simulation: InsertTables<'hairstyle_simulations'>): Promise<HairstyleSimulation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('hairstyle_simulations')
-      .insert(simulation)
+    const { data, error } = await (supabase
+      .from('hairstyle_simulations') as ReturnType<typeof supabase.from>)
+      .insert(simulation as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as HairstyleSimulation;
   },
 
   async getSimulation(id: string): Promise<HairstyleSimulation | null> {
@@ -346,18 +346,18 @@ export const aiService = {
     generatedImageUrl: string
   ): Promise<HairstyleSimulation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('hairstyle_simulations')
+    const { data, error } = await (supabase
+      .from('hairstyle_simulations') as ReturnType<typeof supabase.from>)
       .update({
         generated_image_url: generatedImageUrl,
         status: 'completed',
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as HairstyleSimulation;
   },
 
   async rateSimulation(
@@ -366,43 +366,43 @@ export const aiService = {
     feedback?: string
   ): Promise<HairstyleSimulation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('hairstyle_simulations')
+    const { data, error } = await (supabase
+      .from('hairstyle_simulations') as ReturnType<typeof supabase.from>)
       .update({
         customer_rating: rating,
         customer_feedback: feedback,
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as HairstyleSimulation;
   },
 
   async approveSimulation(id: string): Promise<HairstyleSimulation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('hairstyle_simulations')
-      .update({ staff_approved: true })
+    const { data, error } = await (supabase
+      .from('hairstyle_simulations') as ReturnType<typeof supabase.from>)
+      .update({ staff_approved: true } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as HairstyleSimulation;
   },
 
   async updateSimulationStatus(id: string, status: string): Promise<HairstyleSimulation> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('hairstyle_simulations')
-      .update({ status })
+    const { data, error } = await (supabase
+      .from('hairstyle_simulations') as ReturnType<typeof supabase.from>)
+      .update({ status } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as HairstyleSimulation;
   },
 };

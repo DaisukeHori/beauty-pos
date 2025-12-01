@@ -427,8 +427,8 @@ export const printService = {
   ): Promise<PrintJob> {
     const supabase = getSupabaseClient();
 
-    const { data: job, error } = await supabase
-      .from('print_jobs')
+    const { data: job, error } = await (supabase
+      .from('print_jobs') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         store_id: storeId,
@@ -437,7 +437,7 @@ export const printService = {
         status: 'pending',
         data,
         copies,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -468,13 +468,13 @@ export const printService = {
   ): Promise<PrintJob> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('print_jobs')
+    const { data, error } = await (supabase
+      .from('print_jobs') as ReturnType<typeof supabase.from>)
       .update({
         status,
         error_message: errorMessage || null,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', jobId)
       .select()
       .single();
@@ -604,19 +604,39 @@ export const printService = {
 
     if (error || !sale) return null;
 
+    // Type the sale data
+    interface SaleWithRelations {
+      id: string;
+      sale_number: string;
+      sale_date: string;
+      subtotal: number;
+      discount_total: number;
+      total: number;
+      points_used?: number;
+      points_earned?: number;
+      store?: { name: string; address?: string; phone?: string; settings?: { receipt_footer?: string; receipt_logo_url?: string } };
+      company?: { invoice_registration_number?: string };
+      customer?: { first_name: string; last_name: string; points_balance?: number };
+      staff?: { first_name: string; last_name: string };
+      items?: Array<Record<string, unknown>>;
+      payments?: Array<{ payment_method: string; amount: number }>;
+      discounts?: Array<{ name: string; amount: number }>;
+    }
+    const typedSale = sale as SaleWithRelations;
+
     // Build receipt data
     const receiptData: ReceiptData = {
-      saleId: sale.id,
-      saleNumber: sale.sale_number,
-      saleDate: sale.sale_date,
-      storeName: sale.store?.name || '',
-      storeAddress: sale.store?.address,
-      storePhone: sale.store?.phone,
-      invoiceRegistrationNumber: sale.company?.invoice_registration_number,
-      customerName: sale.customer
-        ? `${sale.customer.last_name} ${sale.customer.first_name}`
+      saleId: typedSale.id,
+      saleNumber: typedSale.sale_number,
+      saleDate: typedSale.sale_date,
+      storeName: typedSale.store?.name || '',
+      storeAddress: typedSale.store?.address,
+      storePhone: typedSale.store?.phone,
+      invoiceRegistrationNumber: typedSale.company?.invoice_registration_number,
+      customerName: typedSale.customer
+        ? `${typedSale.customer.last_name} ${typedSale.customer.first_name}`
         : undefined,
-      items: sale.items?.map((item: Record<string, unknown>) => ({
+      items: typedSale.items?.map((item: Record<string, unknown>) => ({
         name: item.name as string,
         quantity: item.quantity as number,
         unitPrice: item.unit_price as number,
@@ -627,38 +647,38 @@ export const printService = {
           : undefined,
         nominationFee: item.nomination_fee as number,
       })) || [],
-      subtotal: sale.subtotal,
-      discountTotal: sale.discount_total,
-      discounts: sale.discounts?.map((d: Record<string, unknown>) => ({
-        name: d.name as string,
-        amount: d.amount as number,
+      subtotal: typedSale.subtotal,
+      discountTotal: typedSale.discount_total,
+      discounts: typedSale.discounts?.map((d) => ({
+        name: d.name,
+        amount: d.amount,
       })) || [],
-      tax10Amount: Math.floor(sale.subtotal * 10 / 110),
+      tax10Amount: Math.floor(typedSale.subtotal * 10 / 110),
       tax8Amount: 0,
-      total: sale.total,
-      payments: sale.payments?.map((p: Record<string, unknown>) => ({
-        method: p.payment_method as string,
-        amount: p.amount as number,
+      total: typedSale.total,
+      payments: typedSale.payments?.map((p) => ({
+        method: p.payment_method,
+        amount: p.amount,
       })) || [],
-      paidAmount: sale.payments?.reduce(
-        (sum: number, p: Record<string, number>) => sum + p.amount,
+      paidAmount: typedSale.payments?.reduce(
+        (sum: number, p) => sum + p.amount,
         0
       ) || 0,
       change: Math.max(
         0,
-        (sale.payments?.reduce(
-          (sum: number, p: Record<string, number>) => sum + p.amount,
+        (typedSale.payments?.reduce(
+          (sum: number, p) => sum + p.amount,
           0
-        ) || 0) - sale.total
+        ) || 0) - typedSale.total
       ),
-      pointsUsed: sale.points_used || 0,
-      pointsEarned: sale.points_earned || 0,
-      pointsBalance: sale.customer?.points_balance,
-      staffName: sale.staff
-        ? `${sale.staff.last_name} ${sale.staff.first_name}`
+      pointsUsed: typedSale.points_used || 0,
+      pointsEarned: typedSale.points_earned || 0,
+      pointsBalance: typedSale.customer?.points_balance,
+      staffName: typedSale.staff
+        ? `${typedSale.staff.last_name} ${typedSale.staff.first_name}`
         : undefined,
-      receiptMessage: sale.store?.settings?.receipt_footer,
-      logoUrl: sale.store?.settings?.receipt_logo_url,
+      receiptMessage: typedSale.store?.settings?.receipt_footer,
+      logoUrl: typedSale.store?.settings?.receipt_logo_url,
     };
 
     return receiptData;

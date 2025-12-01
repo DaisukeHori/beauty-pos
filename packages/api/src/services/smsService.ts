@@ -34,7 +34,7 @@ export const smsService = {
       .single();
 
     if (error || !data) return null;
-    return data.config as SmsConfig;
+    return (data as { config: SmsConfig }).config;
   },
 
   /**
@@ -42,15 +42,15 @@ export const smsService = {
    */
   async saveConfig(companyId: string, config: SmsConfig): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('external_integrations')
+    const { error } = await (supabase
+      .from('external_integrations') as ReturnType<typeof supabase.from>)
       .upsert({
         company_id: companyId,
         provider: 'sms',
         config,
         is_active: true,
         updated_at: new Date().toISOString(),
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'company_id,provider',
       });
 
@@ -125,11 +125,11 @@ export const smsService = {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as { sid: string };
       return { success: true, messageId: data.sid };
     } else {
-      const error = await response.json();
-      return { success: false, error: error.message || 'Twilio API error' };
+      const errorData = await response.json() as { message?: string };
+      return { success: false, error: errorData.message || 'Twilio API error' };
     }
   },
 
@@ -167,7 +167,7 @@ export const smsService = {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as { messages?: Array<{ status: string; 'message-id'?: string; 'error-text'?: string }> };
       if (data.messages?.[0]?.status === '0') {
         return { success: true, messageId: data.messages[0]['message-id'] };
       } else {
@@ -268,8 +268,8 @@ ${customerName}様
     messageId?: string
   ): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase
-      .from('notification_logs')
+    await (supabase
+      .from('notification_logs') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         channel: 'sms',
@@ -278,6 +278,6 @@ ${customerName}様
         status: success ? 'sent' : 'failed',
         external_id: messageId,
         sent_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
   },
 };

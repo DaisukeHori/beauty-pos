@@ -70,37 +70,37 @@ export const couponService = {
 
   async create(coupon: CouponInsert): Promise<Coupon> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('coupons')
+    const { data, error } = await (supabase
+      .from('coupons') as ReturnType<typeof supabase.from>)
       .insert({
         ...coupon,
         code: coupon.code.toUpperCase(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Coupon;
   },
 
   async update(id: string, updates: CouponUpdate): Promise<Coupon> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('coupons')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('coupons') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Coupon;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('coupons')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('coupons') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -116,7 +116,7 @@ export const couponService = {
     const supabase = getSupabaseClient();
     const now = new Date();
 
-    const { data: coupon, error } = await supabase
+    const { data: couponData, error } = await supabase
       .from('coupons')
       .select('*')
       .eq('company_id', companyId)
@@ -124,9 +124,11 @@ export const couponService = {
       .eq('is_active', true)
       .single();
 
-    if (error || !coupon) {
+    if (error || !couponData) {
       return { valid: false, error: 'クーポンコードが見つかりません' };
     }
+
+    const coupon = couponData as Coupon;
 
     // Check validity period
     if (new Date(coupon.valid_from) > now) {
@@ -186,33 +188,34 @@ export const couponService = {
     const supabase = getSupabaseClient();
 
     // Create usage record
-    const { data: usage, error: usageError } = await supabase
-      .from('coupon_usages')
+    const { data: usage, error: usageError } = await (supabase
+      .from('coupon_usages') as ReturnType<typeof supabase.from>)
       .insert({
         coupon_id: couponId,
         customer_id: customerId,
         sale_id: saleId,
         discount_amount: discountAmount,
         used_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (usageError) throw usageError;
 
     // Increment used count
-    const { data: coupon } = await supabase
+    const { data: couponData } = await supabase
       .from('coupons')
       .select('used_count')
       .eq('id', couponId)
       .single();
 
-    await supabase
-      .from('coupons')
-      .update({ used_count: (coupon?.used_count || 0) + 1 })
+    const coupon = couponData as { used_count?: number } | null;
+    await (supabase
+      .from('coupons') as ReturnType<typeof supabase.from>)
+      .update({ used_count: (coupon?.used_count || 0) + 1 } as Record<string, unknown>)
       .eq('id', couponId);
 
-    return usage;
+    return usage as CouponUsage;
   },
 
   async calculateDiscount(coupon: Coupon, subtotal: number): Promise<number> {

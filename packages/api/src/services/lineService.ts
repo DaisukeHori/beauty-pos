@@ -62,7 +62,7 @@ export const lineService = {
       .single();
 
     if (error || !data) return null;
-    return data.config as LineConfig;
+    return (data as { config: LineConfig }).config;
   },
 
   /**
@@ -70,15 +70,15 @@ export const lineService = {
    */
   async saveConfig(companyId: string, config: LineConfig): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('external_integrations')
+    const { error } = await (supabase
+      .from('external_integrations') as ReturnType<typeof supabase.from>)
       .upsert({
         company_id: companyId,
         provider: 'line',
         config,
         is_active: true,
         updated_at: new Date().toISOString(),
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'company_id,provider',
       });
 
@@ -347,7 +347,7 @@ ${customerName} 様
       });
 
       if (!response.ok) return null;
-      return response.json();
+      return response.json() as Promise<LineUserProfile>;
     } catch {
       return null;
     }
@@ -358,9 +358,9 @@ ${customerName} 様
    */
   async linkCustomer(customerId: string, lineUserId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('customers')
-      .update({ line_user_id: lineUserId })
+    const { error } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ line_user_id: lineUserId } as Record<string, unknown>)
       .eq('id', customerId);
 
     if (error) throw error;
@@ -379,9 +379,10 @@ ${customerName} 様
       .single();
 
     if (error || !data) return null;
+    const customer = data as { id: string; first_name: string; last_name: string };
     return {
-      id: data.id,
-      name: `${data.last_name} ${data.first_name}`,
+      id: customer.id,
+      name: `${customer.last_name} ${customer.first_name}`,
     };
   },
 
@@ -398,14 +399,14 @@ ${customerName} 様
         if (lineUserId) {
           const profile = await this.getUserProfile(companyId, lineUserId);
           // Log the follow event
-          await supabase
-            .from('line_events')
+          await (supabase
+            .from('line_events') as ReturnType<typeof supabase.from>)
             .insert({
               company_id: companyId,
               event_type: 'follow',
               line_user_id: lineUserId,
               profile_data: profile,
-            });
+            } as Record<string, unknown>);
         }
         break;
       }
@@ -414,13 +415,13 @@ ${customerName} 様
         // User unfollowed
         const lineUserId = event.source.userId;
         if (lineUserId) {
-          await supabase
-            .from('line_events')
+          await (supabase
+            .from('line_events') as ReturnType<typeof supabase.from>)
             .insert({
               company_id: companyId,
               event_type: 'unfollow',
               line_user_id: lineUserId,
-            });
+            } as Record<string, unknown>);
         }
         break;
       }
@@ -429,14 +430,14 @@ ${customerName} 様
         // User sent a message
         const lineUserId = event.source.userId;
         if (lineUserId && event.message?.text) {
-          await supabase
-            .from('line_events')
+          await (supabase
+            .from('line_events') as ReturnType<typeof supabase.from>)
             .insert({
               company_id: companyId,
               event_type: 'message',
               line_user_id: lineUserId,
               message_data: event.message,
-            });
+            } as Record<string, unknown>);
         }
         break;
       }
@@ -445,14 +446,14 @@ ${customerName} 様
         // User clicked a button with postback data
         const lineUserId = event.source.userId;
         if (lineUserId && event.postback?.data) {
-          await supabase
-            .from('line_events')
+          await (supabase
+            .from('line_events') as ReturnType<typeof supabase.from>)
             .insert({
               company_id: companyId,
               event_type: 'postback',
               line_user_id: lineUserId,
               postback_data: event.postback.data,
-            });
+            } as Record<string, unknown>);
         }
         break;
       }
@@ -469,8 +470,8 @@ ${customerName} 様
     success: boolean
   ): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase
-      .from('notification_logs')
+    await (supabase
+      .from('notification_logs') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         channel: 'line',
@@ -478,7 +479,7 @@ ${customerName} 様
         notification_type: notificationType,
         status: success ? 'sent' : 'failed',
         sent_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
   },
 
   /**
@@ -534,7 +535,7 @@ ${customerName} 様
       });
 
       if (!response.ok) return null;
-      const data = await response.json();
+      const data = await response.json() as { richMenuId: string };
       return data.richMenuId;
     } catch {
       return null;

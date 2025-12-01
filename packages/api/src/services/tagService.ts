@@ -57,42 +57,42 @@ export const tagService = {
 
   async create(tag: TagInsert): Promise<Tag> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tags')
-      .insert(tag)
+    const { data, error } = await (supabase
+      .from('tags') as ReturnType<typeof supabase.from>)
+      .insert(tag as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tag;
   },
 
   async update(id: string, updates: TagUpdate): Promise<Tag> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tags')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('tags') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Tag;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
 
     // First, update children to have no parent
-    await supabase
-      .from('tags')
-      .update({ parent_id: null })
+    await (supabase
+      .from('tags') as ReturnType<typeof supabase.from>)
+      .update({ parent_id: null } as Record<string, unknown>)
       .eq('parent_id', id);
 
     // Then soft delete the tag
-    const { error } = await supabase
-      .from('tags')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('tags') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -102,9 +102,9 @@ export const tagService = {
     const supabase = getSupabaseClient();
 
     for (let i = 0; i < tagIds.length; i++) {
-      await supabase
-        .from('tags')
-        .update({ sort_order: i })
+      await (supabase
+        .from('tags') as ReturnType<typeof supabase.from>)
+        .update({ sort_order: i } as Record<string, unknown>)
         .eq('id', tagIds[i])
         .eq('company_id', companyId);
     }
@@ -121,20 +121,20 @@ export const tagService = {
   // Tag assignment operations
   async assignTag(tagId: string, entityType: EntityType, entityId: string): Promise<TagItem> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('tag_items')
+    const { data, error } = await (supabase
+      .from('tag_items') as ReturnType<typeof supabase.from>)
       .upsert({
         tag_id: tagId,
         entity_type: entityType,
         entity_id: entityId,
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'tag_id,entity_type,entity_id',
       })
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as TagItem;
   },
 
   async removeTag(tagId: string, entityType: EntityType, entityId: string): Promise<void> {
@@ -160,7 +160,8 @@ export const tagService = {
       .eq('entity_id', entityId);
 
     if (error) throw error;
-    return data?.map((d) => d.tag).filter(Boolean) as Tag[] || [];
+    const typedData = data as Array<{ tag: Tag }> | null;
+    return typedData?.map((d) => d.tag).filter(Boolean) as Tag[] || [];
   },
 
   async getEntitiesByTag(tagId: string, entityType: EntityType): Promise<string[]> {
@@ -172,7 +173,8 @@ export const tagService = {
       .eq('entity_type', entityType);
 
     if (error) throw error;
-    return data?.map((d) => d.entity_id) || [];
+    const typedData = data as Array<{ entity_id: string }> | null;
+    return typedData?.map((d) => d.entity_id) || [];
   },
 
   async setEntityTags(entityType: EntityType, entityId: string, tagIds: string[]): Promise<void> {
@@ -193,9 +195,9 @@ export const tagService = {
         entity_id: entityId,
       }));
 
-      const { error } = await supabase
-        .from('tag_items')
-        .insert(items);
+      const { error } = await (supabase
+        .from('tag_items') as ReturnType<typeof supabase.from>)
+        .insert(items as unknown as Record<string, unknown>[]);
 
       if (error) throw error;
     }
@@ -221,10 +223,13 @@ export const tagService = {
 
     if (!data) return [];
 
+    interface TagItem { entity_id: string; tag_id: string; }
+    const typedData = data as TagItem[];
+
     if (matchAll) {
       // Return entities that have ALL specified tags
       const entityTagCounts = new Map<string, Set<string>>();
-      data.forEach((item) => {
+      typedData.forEach((item) => {
         if (!entityTagCounts.has(item.entity_id)) {
           entityTagCounts.set(item.entity_id, new Set());
         }
@@ -236,7 +241,7 @@ export const tagService = {
         .map(([entityId]) => entityId);
     } else {
       // Return entities that have ANY of the specified tags
-      return [...new Set(data.map((item) => item.entity_id))];
+      return [...new Set(typedData.map((item) => item.entity_id))];
     }
   },
 };

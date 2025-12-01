@@ -28,34 +28,34 @@ export const menuService = {
 
   async createCategory(category: InsertTables<'menu_categories'>): Promise<MenuCategory> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('menu_categories')
-      .insert(category)
+    const { data, error } = await (supabase
+      .from('menu_categories') as ReturnType<typeof supabase.from>)
+      .insert(category as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as MenuCategory;
   },
 
   async updateCategory(id: string, updates: UpdateTables<'menu_categories'>): Promise<MenuCategory> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('menu_categories')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('menu_categories') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as MenuCategory;
   },
 
   async deleteCategory(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('menu_categories')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('menu_categories') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -65,9 +65,9 @@ export const menuService = {
     const supabase = getSupabaseClient();
 
     for (let i = 0; i < categoryIds.length; i++) {
-      await supabase
-        .from('menu_categories')
-        .update({ sort_order: i })
+      await (supabase
+        .from('menu_categories') as ReturnType<typeof supabase.from>)
+        .update({ sort_order: i } as Record<string, unknown>)
         .eq('id', categoryIds[i])
         .eq('company_id', companyId);
     }
@@ -139,34 +139,34 @@ export const menuService = {
 
   async create(menu: InsertTables<'menus'>): Promise<Menu> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('menus')
-      .insert(menu)
+    const { data, error } = await (supabase
+      .from('menus') as ReturnType<typeof supabase.from>)
+      .insert(menu as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Menu;
   },
 
   async update(id: string, updates: UpdateTables<'menus'>): Promise<Menu> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('menus')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('menus') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Menu;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('menus')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('menus') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -176,9 +176,9 @@ export const menuService = {
     const supabase = getSupabaseClient();
 
     for (let i = 0; i < menuIds.length; i++) {
-      await supabase
-        .from('menus')
-        .update({ sort_order: i })
+      await (supabase
+        .from('menus') as ReturnType<typeof supabase.from>)
+        .update({ sort_order: i } as Record<string, unknown>)
         .eq('id', menuIds[i])
         .eq('category_id', categoryId);
     }
@@ -200,34 +200,34 @@ export const menuService = {
 
   async createProcess(process: InsertTables<'processes'>): Promise<Process> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('processes')
-      .insert(process)
+    const { data, error } = await (supabase
+      .from('processes') as ReturnType<typeof supabase.from>)
+      .insert(process as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Process;
   },
 
   async updateProcess(id: string, updates: UpdateTables<'processes'>): Promise<Process> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('processes')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('processes') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Process;
   },
 
   async deleteProcess(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('processes')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('processes') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -251,9 +251,9 @@ export const menuService = {
         sort_order: index,
       }));
 
-      const { error } = await supabase
-        .from('menu_processes')
-        .insert(associations);
+      const { error } = await (supabase
+        .from('menu_processes') as ReturnType<typeof supabase.from>)
+        .insert(associations as unknown as Record<string, unknown>[]);
 
       if (error) throw error;
     }

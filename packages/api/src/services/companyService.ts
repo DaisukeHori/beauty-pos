@@ -20,15 +20,15 @@ export const companyService = {
 
   async update(id: string, updates: CompanyUpdate): Promise<Company> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('companies')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Company;
   },
 
   async updateSettings(id: string, settings: Record<string, unknown>): Promise<Company> {
@@ -41,20 +41,21 @@ export const companyService = {
       .eq('id', id)
       .single();
 
+    const currentData = current as { settings?: Record<string, unknown> } | null;
     const mergedSettings = {
-      ...(current?.settings as Record<string, unknown> || {}),
+      ...(currentData?.settings || {}),
       ...settings,
     };
 
-    const { data, error } = await supabase
-      .from('companies')
-      .update({ settings: mergedSettings })
+    const { data, error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
+      .update({ settings: mergedSettings } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Company;
   },
 
   async uploadLogo(id: string, file: File): Promise<string> {
@@ -74,9 +75,9 @@ export const companyService = {
       .getPublicUrl(filePath);
 
     // Update company with logo URL
-    await supabase
-      .from('companies')
-      .update({ logo_url: data.publicUrl })
+    await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
+      .update({ logo_url: data.publicUrl } as Record<string, unknown>)
       .eq('id', id);
 
     return data.publicUrl;

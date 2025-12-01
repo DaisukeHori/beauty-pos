@@ -42,7 +42,7 @@ export const emailService = {
       .single();
 
     if (error || !data) return null;
-    return data.config as EmailConfig;
+    return (data as { config: EmailConfig }).config;
   },
 
   /**
@@ -50,15 +50,15 @@ export const emailService = {
    */
   async saveConfig(companyId: string, config: EmailConfig): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('external_integrations')
+    const { error } = await (supabase
+      .from('external_integrations') as ReturnType<typeof supabase.from>)
       .upsert({
         company_id: companyId,
         provider: 'email',
         config,
         is_active: true,
         updated_at: new Date().toISOString(),
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'company_id,provider',
       });
 
@@ -135,8 +135,8 @@ export const emailService = {
       const messageId = response.headers.get('X-Message-Id') || undefined;
       return { success: true, messageId };
     } else {
-      const error = await response.json();
-      return { success: false, error: error.errors?.[0]?.message || 'SendGrid API error' };
+      const errorData = await response.json() as { errors?: Array<{ message?: string }> };
+      return { success: false, error: errorData.errors?.[0]?.message || 'SendGrid API error' };
     }
   },
 
@@ -181,11 +181,11 @@ export const emailService = {
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as { id?: string };
       return { success: true, messageId: data.id };
     } else {
-      const error = await response.json();
-      return { success: false, error: error.message || 'Mailgun API error' };
+      const errorData = await response.json() as { message?: string };
+      return { success: false, error: errorData.message || 'Mailgun API error' };
     }
   },
 
@@ -468,8 +468,8 @@ ${storeName}`;
     messageId?: string
   ): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase
-      .from('notification_logs')
+    await (supabase
+      .from('notification_logs') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         channel: 'email',
@@ -478,6 +478,6 @@ ${storeName}`;
         status: success ? 'sent' : 'failed',
         external_id: messageId,
         sent_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
   },
 };

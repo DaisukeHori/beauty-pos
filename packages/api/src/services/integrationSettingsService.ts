@@ -162,7 +162,8 @@ export const integrationSettingsService = {
 
     if (error) throw error;
 
-    const settings = (data?.settings as Record<string, unknown>) || {};
+    const companyData = data as { settings?: Record<string, unknown> } | null;
+    const settings = companyData?.settings || {};
     const integrations = (settings.integrations as Record<IntegrationType, IntegrationConfig>) || {};
 
     return {
@@ -220,7 +221,8 @@ export const integrationSettingsService = {
       .eq('id', companyId)
       .single();
 
-    const settings = (current?.settings as Record<string, unknown>) || {};
+    const currentData = current as { settings?: Record<string, unknown> } | null;
+    const settings = currentData?.settings || {};
     const integrations = (settings.integrations as Record<string, IntegrationConfig>) || {};
 
     // Merge with existing config
@@ -241,12 +243,12 @@ export const integrationSettingsService = {
     integrations[type] = updatedConfig;
 
     // Save to database
-    const { error } = await supabase
-      .from('companies')
+    const { error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
       .update({
         settings: { ...settings, integrations },
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', companyId);
 
     if (error) throw error;
@@ -273,17 +275,18 @@ export const integrationSettingsService = {
       .eq('id', companyId)
       .single();
 
-    const settings = (current?.settings as Record<string, unknown>) || {};
+    const deleteCurrentData = current as { settings?: Record<string, unknown> } | null;
+    const settings = deleteCurrentData?.settings || {};
     const integrations = (settings.integrations as Record<string, IntegrationConfig>) || {};
 
     delete integrations[type];
 
-    const { error } = await supabase
-      .from('companies')
+    const { error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
       .update({
         settings: { ...settings, integrations },
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', companyId);
 
     if (error) throw error;

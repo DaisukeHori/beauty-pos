@@ -30,7 +30,8 @@ export const pointService = {
 
     if (error) throw error;
 
-    const settings = (data?.settings as Record<string, unknown>) || {};
+    const companyData = data as { settings?: Record<string, unknown> } | null;
+    const settings = companyData?.settings || {};
     return {
       pointRate: (settings.point_rate as number) ?? DEFAULT_POINT_SETTINGS.pointRate,
       expiryMonths: (settings.point_expiry_months as number) ?? DEFAULT_POINT_SETTINGS.expiryMonths,
@@ -52,7 +53,8 @@ export const pointService = {
 
     if (fetchError) throw fetchError;
 
-    const currentSettings = (company?.settings as Record<string, unknown>) || {};
+    const companyData = company as { settings?: Record<string, unknown> } | null;
+    const currentSettings = companyData?.settings || {};
     const updatedSettings = {
       ...currentSettings,
       point_rate: settings.pointRate ?? currentSettings.point_rate,
@@ -61,9 +63,9 @@ export const pointService = {
       point_value: settings.pointValue ?? currentSettings.point_value,
     };
 
-    const { error } = await supabase
-      .from('companies')
-      .update({ settings: updatedSettings })
+    const { error } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
+      .update({ settings: updatedSettings } as Record<string, unknown>)
       .eq('id', companyId);
 
     if (error) throw error;
@@ -109,7 +111,8 @@ export const pointService = {
       .single();
 
     if (error) throw error;
-    return data?.points_balance || 0;
+    const customerData = data as { points_balance?: number } | null;
+    return customerData?.points_balance || 0;
   },
 
   // Add points (earn) - auto-calculates expiry if not provided
@@ -134,8 +137,8 @@ export const pointService = {
     }
 
     // Create transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('point_transactions')
+    const { data: transaction, error: transactionError } = await (supabase
+      .from('point_transactions') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -145,21 +148,21 @@ export const pointService = {
         balance_after: newBalance,
         description: description || 'ポイント付与',
         expires_at: finalExpiresAt || null,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (transactionError) throw transactionError;
 
     // Update customer balance
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({ points_balance: newBalance })
+    const { error: updateError } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ points_balance: newBalance } as Record<string, unknown>)
       .eq('id', customerId);
 
     if (updateError) throw updateError;
 
-    return transaction;
+    return transaction as PointTransaction;
   },
 
   // Use points (redeem)
@@ -182,8 +185,8 @@ export const pointService = {
     const newBalance = currentBalance - points;
 
     // Create transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('point_transactions')
+    const { data: transaction, error: transactionError } = await (supabase
+      .from('point_transactions') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -192,21 +195,21 @@ export const pointService = {
         points: -points,
         balance_after: newBalance,
         description: description || 'ポイント利用',
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (transactionError) throw transactionError;
 
     // Update customer balance
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({ points_balance: newBalance })
+    const { error: updateError } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ points_balance: newBalance } as Record<string, unknown>)
       .eq('id', customerId);
 
     if (updateError) throw updateError;
 
-    return transaction;
+    return transaction as PointTransaction;
   },
 
   // Adjust points (manual adjustment)
@@ -223,8 +226,8 @@ export const pointService = {
     const newBalance = currentBalance + points;
 
     // Create transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('point_transactions')
+    const { data: transaction, error: transactionError } = await (supabase
+      .from('point_transactions') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -232,21 +235,21 @@ export const pointService = {
         points: points,
         balance_after: newBalance,
         description: description,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (transactionError) throw transactionError;
 
     // Update customer balance
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({ points_balance: newBalance })
+    const { error: updateError } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ points_balance: newBalance } as Record<string, unknown>)
       .eq('id', customerId);
 
     if (updateError) throw updateError;
 
-    return transaction;
+    return transaction as PointTransaction;
   },
 
   // Expire points (for batch processing)
@@ -262,8 +265,8 @@ export const pointService = {
     const newBalance = Math.max(0, currentBalance - points);
 
     // Create transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('point_transactions')
+    const { data: transaction, error: transactionError } = await (supabase
+      .from('point_transactions') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -271,21 +274,21 @@ export const pointService = {
         points: -points,
         balance_after: newBalance,
         description: 'ポイント有効期限切れ',
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (transactionError) throw transactionError;
 
     // Update customer balance
-    const { error: updateError } = await supabase
-      .from('customers')
-      .update({ points_balance: newBalance })
+    const { error: updateError } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
+      .update({ points_balance: newBalance } as Record<string, unknown>)
       .eq('id', customerId);
 
     if (updateError) throw updateError;
 
-    return transaction;
+    return transaction as PointTransaction;
   },
 
   // Get expiring points
@@ -312,7 +315,10 @@ export const pointService = {
     // Aggregate by customer
     const customerPoints: Record<string, { points: number; expiresAt: string }> = {};
 
-    for (const tx of data || []) {
+    interface PointTx { customer_id: string; points: number; expires_at: string | null; }
+    const typedData = (data || []) as PointTx[];
+
+    for (const tx of typedData) {
       if (!customerPoints[tx.customer_id]) {
         customerPoints[tx.customer_id] = { points: 0, expiresAt: tx.expires_at! };
       }

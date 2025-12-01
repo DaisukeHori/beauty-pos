@@ -52,10 +52,12 @@ export const reminderSchedulerService = {
       .limit(1)
       .single();
 
+    const lastReminderData = lastReminder as { reminder_sent_at?: string | null } | null;
+
     return {
       pendingCount: pendingCount || 0,
       sentTodayCount: sentTodayCount || 0,
-      lastSentAt: lastReminder?.reminder_sent_at || null,
+      lastSentAt: lastReminderData?.reminder_sent_at || null,
     };
   },
 
@@ -102,10 +104,20 @@ export const reminderSchedulerService = {
 
     if (error) throw error;
 
-    return (data || []).map((r) => {
-      const customer = r.customer as { first_name: string; last_name: string } | null;
-      const staff = r.staff as { first_name: string; last_name: string } | null;
-      const store = r.store as { name: string } | null;
+    interface ReservationWithRelations {
+      id: string;
+      start_time: string;
+      customer_id: string;
+      reminder_sent_at: string | null;
+      customer: { first_name: string; last_name: string } | null;
+      staff: { first_name: string; last_name: string } | null;
+      store: { name: string } | null;
+    }
+
+    return ((data || []) as ReservationWithRelations[]).map((r) => {
+      const customer = r.customer;
+      const staff = r.staff;
+      const store = r.store;
 
       return {
         reservationId: r.id,
@@ -152,11 +164,24 @@ export const reminderSchedulerService = {
       throw new Error('Reservation not found');
     }
 
-    const customer = reservation.customer as { first_name: string; last_name: string } | null;
-    const staff = reservation.staff as { first_name: string; last_name: string } | null;
-    const store = reservation.store as { name: string } | null;
+    interface ReservationDetails {
+      id: string;
+      start_time: string;
+      customer_id: string;
+      staff_id: string;
+      store_id: string;
+      company_id: string;
+      customer: { first_name: string; last_name: string } | null;
+      staff: { first_name: string; last_name: string } | null;
+      store: { name: string } | null;
+    }
 
-    const reservationDate = new Date(reservation.start_time);
+    const typedReservation = reservation as ReservationDetails;
+    const customer = typedReservation.customer;
+    const staff = typedReservation.staff;
+    const store = typedReservation.store;
+
+    const reservationDate = new Date(typedReservation.start_time);
     const timeStr = reservationDate.toLocaleTimeString('ja-JP', {
       hour: '2-digit',
       minute: '2-digit',
@@ -167,9 +192,9 @@ export const reminderSchedulerService = {
 
     // Send notification
     await notificationService.sendReservationReminder(
-      reservation.company_id,
-      reservation.store_id,
-      reservation.customer_id,
+      typedReservation.company_id,
+      typedReservation.store_id,
+      typedReservation.customer_id,
       {
         date: reservationDate.toLocaleDateString('ja-JP'),
         time: timeStr,
@@ -179,9 +204,9 @@ export const reminderSchedulerService = {
     );
 
     // Mark as sent
-    const { error: updateError } = await supabase
-      .from('reservations')
-      .update({ reminder_sent_at: new Date().toISOString() })
+    const { error: updateError } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
+      .update({ reminder_sent_at: new Date().toISOString() } as Record<string, unknown>)
       .eq('id', reservationId);
 
     if (updateError) throw updateError;
@@ -246,6 +271,7 @@ export const reminderSchedulerService = {
       .single();
 
     if (error) return false;
-    return data?.reminder_sent_at === null;
+    const reminderData = data as { reminder_sent_at?: string | null } | null;
+    return reminderData?.reminder_sent_at === null;
   },
 };

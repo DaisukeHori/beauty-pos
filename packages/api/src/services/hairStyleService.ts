@@ -239,18 +239,18 @@ export const hairStyleService = {
   ): Promise<HairStyleCategory | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('hair_style_categories')
+      const { data, error } = await (supabase
+        .from('hair_style_categories') as ReturnType<typeof supabase.from>)
         .insert({
           company_id: companyId,
           name,
           description,
-        })
+        } as Record<string, unknown>)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as HairStyleCategory;
     } catch (error) {
       console.error('Error creating category:', error);
       return null;
@@ -350,14 +350,14 @@ export const hairStyleService = {
   async create(style: HairStyleInsert): Promise<HairStyle | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('hair_styles')
-        .insert(style)
+      const { data, error } = await (supabase
+        .from('hair_styles') as ReturnType<typeof supabase.from>)
+        .insert(style as unknown as Record<string, unknown>)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as HairStyle;
     } catch (error) {
       console.error('Error creating hair style:', error);
       return null;
@@ -367,15 +367,15 @@ export const hairStyleService = {
   async update(id: string, updates: HairStyleUpdate): Promise<HairStyle | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('hair_styles')
-        .update(updates)
+      const { data, error } = await (supabase
+        .from('hair_styles') as ReturnType<typeof supabase.from>)
+        .update(updates as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as HairStyle;
     } catch (error) {
       console.error('Error updating hair style:', error);
       return null;
@@ -385,9 +385,9 @@ export const hairStyleService = {
   async delete(id: string): Promise<boolean> {
     const supabase = getSupabaseClient();
     try {
-      const { error } = await supabase
-        .from('hair_styles')
-        .update({ is_active: false })
+      const { error } = await (supabase
+        .from('hair_styles') as ReturnType<typeof supabase.from>)
+        .update({ is_active: false } as Record<string, unknown>)
         .eq('id', id);
 
       if (error) throw error;
@@ -401,7 +401,7 @@ export const hairStyleService = {
   async incrementPopularity(id: string): Promise<void> {
     const supabase = getSupabaseClient();
     try {
-      await supabase.rpc('increment_hair_style_popularity', { style_id: id });
+      await (supabase as unknown as { rpc: (name: string, params: Record<string, unknown>) => Promise<unknown> }).rpc('increment_hair_style_popularity', { style_id: id });
     } catch (error) {
       console.warn('Could not increment popularity:', error);
     }
@@ -420,7 +420,7 @@ export const hairStyleService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data?.map(d => d.hair_style).filter(Boolean) as HairStyle[] || [];
+      return (data as unknown as Array<{ hair_style: HairStyle }>)?.map(d => d.hair_style).filter(Boolean) || [];
     } catch (error) {
       console.warn('Error getting favorites:', error);
       return [];
@@ -430,12 +430,12 @@ export const hairStyleService = {
   async addFavorite(customerId: string, hairStyleId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
     try {
-      const { error } = await supabase
-        .from('hair_style_favorites')
+      const { error } = await (supabase
+        .from('hair_style_favorites') as ReturnType<typeof supabase.from>)
         .upsert({
           customer_id: customerId,
           hair_style_id: hairStyleId,
-        }, {
+        } as Record<string, unknown>, {
           onConflict: 'customer_id,hair_style_id',
         });
 

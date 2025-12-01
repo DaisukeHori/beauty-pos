@@ -259,7 +259,8 @@ export const featureSettingsService = {
 
     if (error) throw error;
 
-    const settings = (data?.settings as Record<string, unknown>) || {};
+    const companyData = data as { settings?: Record<string, unknown> } | null;
+    const settings = companyData?.settings || {};
     let features = (settings.features as Record<FeatureType, FeatureConfig>) || {};
 
     // If store-specific settings exist, merge them
@@ -270,8 +271,9 @@ export const featureSettingsService = {
         .eq('id', storeId)
         .single();
 
-      if (storeData?.settings) {
-        const storeSettings = storeData.settings as Record<string, unknown>;
+      const storeDataTyped = storeData as { settings?: Record<string, unknown> } | null;
+      if (storeDataTyped?.settings) {
+        const storeSettings = storeDataTyped.settings;
         const storeFeatures = (storeSettings.features as Record<FeatureType, FeatureConfig>) || {};
         features = { ...features, ...storeFeatures };
       }
@@ -321,7 +323,8 @@ export const featureSettingsService = {
       .eq('id', id)
       .single();
 
-    const settings = (current?.settings as Record<string, unknown>) || {};
+    const currentData = current as { settings?: Record<string, unknown> } | null;
+    const settings = currentData?.settings || {};
     const features = (settings.features as Record<string, FeatureConfig>) || {};
 
     // Merge with existing config
@@ -336,12 +339,12 @@ export const featureSettingsService = {
     features[type] = updatedConfig;
 
     // Save to database
-    const { error } = await supabase
-      .from(table)
+    const { error } = await (supabase
+      .from(table) as ReturnType<typeof supabase.from>)
       .update({
         settings: { ...settings, features },
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;

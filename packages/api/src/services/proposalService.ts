@@ -165,17 +165,17 @@ export const proposalService = {
   async create(proposalData: CreateProposalData): Promise<StyleProposal | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('style_proposals')
+      const { data, error } = await (supabase
+        .from('style_proposals') as ReturnType<typeof supabase.from>)
         .insert({
           ...proposalData,
           status: 'pending',
-        })
+        } as Record<string, unknown>)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StyleProposal;
     } catch (error) {
       console.error('Error creating proposal:', error);
       return null;
@@ -188,19 +188,19 @@ export const proposalService = {
   ): Promise<StyleProposal | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('style_proposals')
+      const { data, error } = await (supabase
+        .from('style_proposals') as ReturnType<typeof supabase.from>)
         .update({
           status: 'accepted',
           customer_feedback: feedback,
           responded_at: new Date().toISOString(),
-        })
+        } as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StyleProposal;
     } catch (error) {
       console.error('Error accepting proposal:', error);
       return null;
@@ -213,19 +213,19 @@ export const proposalService = {
   ): Promise<StyleProposal | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('style_proposals')
+      const { data, error } = await (supabase
+        .from('style_proposals') as ReturnType<typeof supabase.from>)
         .update({
           status: 'rejected',
           customer_feedback: feedback,
           responded_at: new Date().toISOString(),
-        })
+        } as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StyleProposal;
     } catch (error) {
       console.error('Error rejecting proposal:', error);
       return null;
@@ -238,17 +238,17 @@ export const proposalService = {
   ): Promise<StyleProposal | null> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('style_proposals')
+      const { data, error } = await (supabase
+        .from('style_proposals') as ReturnType<typeof supabase.from>)
         .update({
           customer_feedback: feedback,
-        })
+        } as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as StyleProposal;
     } catch (error) {
       console.error('Error adding feedback:', error);
       return null;
@@ -275,15 +275,15 @@ export const proposalService = {
   async expireOld(): Promise<number> {
     const supabase = getSupabaseClient();
     try {
-      const { data, error } = await supabase
-        .from('style_proposals')
-        .update({ status: 'expired' })
+      const { data, error } = await (supabase
+        .from('style_proposals') as ReturnType<typeof supabase.from>)
+        .update({ status: 'expired' } as Record<string, unknown>)
         .eq('status', 'pending')
         .lt('expires_at', new Date().toISOString())
         .select();
 
       if (error) throw error;
-      return data?.length || 0;
+      return (data as unknown[])?.length || 0;
     } catch (error) {
       console.error('Error expiring proposals:', error);
       return 0;

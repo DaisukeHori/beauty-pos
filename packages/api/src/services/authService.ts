@@ -43,22 +43,22 @@ export const authService = {
     if (!authData.user) throw new Error('ユーザー作成に失敗しました');
 
     // Create company
-    const { data: company, error: companyError } = await supabase
-      .from('companies')
+    const { data: company, error: companyError } = await (supabase
+      .from('companies') as ReturnType<typeof supabase.from>)
       .insert({
         name: data.companyName,
         settings: {},
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
     if (companyError) throw companyError;
 
     // Create staff record for the owner
-    const { data: staff, error: staffError } = await supabase
-      .from('staff')
+    const { data: staff, error: staffError } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
       .insert({
-        company_id: company.id,
+        company_id: (company as { id: string }).id,
         user_id: authData.user.id,
         employee_code: 'OWNER001',
         last_name: data.lastName,
@@ -66,7 +66,7 @@ export const authService = {
         email: data.email,
         role: 'owner',
         is_active: true,
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -117,8 +117,8 @@ export const authService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const { data: staff } = await supabase
-      .from('staff')
+    const { data: staff } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
       .select('id, company_id, role')
       .eq('user_id', user.id)
       .eq('is_active', true)
@@ -126,12 +126,13 @@ export const authService = {
 
     if (!staff) return null;
 
+    const staffData = staff as { id: string; company_id: string; role: string };
     return {
       id: user.id,
       email: user.email || '',
-      companyId: staff.company_id,
-      staffId: staff.id,
-      role: staff.role,
+      companyId: staffData.company_id,
+      staffId: staffData.id,
+      role: staffData.role,
     };
   },
 

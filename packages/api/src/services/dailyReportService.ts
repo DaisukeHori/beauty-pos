@@ -1,9 +1,62 @@
 import { getSupabaseClient } from '../client';
-import type { Tables, InsertTables, UpdateTables } from '../types/database';
 
-export type DailyReport = Tables<'daily_reports'>;
-export type DailyReportInsert = InsertTables<'daily_reports'>;
-export type DailyReportUpdate = UpdateTables<'daily_reports'>;
+// Manual type definition since 'daily_reports' may not exist in generated types
+export interface DailyReport {
+  id: string;
+  company_id: string;
+  store_id: string;
+  report_date: string;
+  gross_sales: number | null;
+  net_sales: number | null;
+  tax_amount: number | null;
+  discount_amount: number | null;
+  transaction_count: number | null;
+  customer_count: number | null;
+  cash_sales: number | null;
+  card_sales: number | null;
+  electronic_money_sales: number | null;
+  qr_sales: number | null;
+  credit_sales: number | null;
+  is_closed: boolean;
+  closed_by: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyReportInsert {
+  company_id: string;
+  store_id: string;
+  report_date: string;
+  gross_sales?: number | null;
+  net_sales?: number | null;
+  tax_amount?: number | null;
+  discount_amount?: number | null;
+  transaction_count?: number | null;
+  customer_count?: number | null;
+  cash_sales?: number | null;
+  card_sales?: number | null;
+  electronic_money_sales?: number | null;
+  qr_sales?: number | null;
+  credit_sales?: number | null;
+}
+
+export interface DailyReportUpdate {
+  gross_sales?: number | null;
+  net_sales?: number | null;
+  tax_amount?: number | null;
+  discount_amount?: number | null;
+  transaction_count?: number | null;
+  customer_count?: number | null;
+  cash_sales?: number | null;
+  card_sales?: number | null;
+  electronic_money_sales?: number | null;
+  qr_sales?: number | null;
+  credit_sales?: number | null;
+  is_closed?: boolean;
+  closed_by?: string | null;
+  closed_at?: string | null;
+}
 
 export const dailyReportService = {
   async getByDate(companyId: string, storeId: string, date: string): Promise<DailyReport | null> {
@@ -37,7 +90,7 @@ export const dailyReportService = {
       .order('report_date', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as DailyReport[];
   },
 
   async getMonthly(companyId: string, storeId: string, year: number, month: number): Promise<DailyReport[]> {
@@ -67,19 +120,19 @@ export const dailyReportService = {
 
   async close(id: string, closedBy: string): Promise<DailyReport> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('daily_reports')
+    const { data, error } = await (supabase
+      .from('daily_reports') as ReturnType<typeof supabase.from>)
       .update({
         is_closed: true,
         closed_by: closedBy,
         closed_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as DailyReport;
   },
 
   async getSummary(companyId: string, storeId: string, startDate: string, endDate: string) {

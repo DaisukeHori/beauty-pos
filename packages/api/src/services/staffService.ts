@@ -66,39 +66,40 @@ export const staffService = {
       .eq('store_id', storeId);
 
     if (error) throw error;
-    return data?.map((d) => d.staff).filter(Boolean) as Staff[] || [];
+    const staffData = data as Array<{ staff: Staff }> | null;
+    return staffData?.map((d) => d.staff).filter(Boolean) as Staff[] || [];
   },
 
   async create(staff: StaffInsert): Promise<Staff> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('staff')
-      .insert(staff)
+    const { data, error } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
+      .insert(staff as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Staff;
   },
 
   async update(id: string, updates: StaffUpdate): Promise<Staff> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('staff')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Staff;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('staff')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -109,19 +110,19 @@ export const staffService = {
 
     // If setting as primary, unset other primaries first
     if (isPrimary) {
-      await supabase
-        .from('staff_stores')
-        .update({ is_primary: false })
+      await (supabase
+        .from('staff_stores') as ReturnType<typeof supabase.from>)
+        .update({ is_primary: false } as Record<string, unknown>)
         .eq('staff_id', staffId);
     }
 
-    const { error } = await supabase
-      .from('staff_stores')
+    const { error } = await (supabase
+      .from('staff_stores') as ReturnType<typeof supabase.from>)
       .upsert({
         staff_id: staffId,
         store_id: storeId,
         is_primary: isPrimary,
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'staff_id,store_id',
       });
 
@@ -155,15 +156,15 @@ export const staffService = {
 
   async updateNominationFee(id: string, fee: number): Promise<Staff> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('staff')
-      .update({ nomination_fee: fee })
+    const { data, error } = await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
+      .update({ nomination_fee: fee } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Staff;
   },
 
   async uploadAvatar(id: string, file: File): Promise<string> {
@@ -182,9 +183,9 @@ export const staffService = {
       .from('avatars')
       .getPublicUrl(filePath);
 
-    await supabase
-      .from('staff')
-      .update({ avatar_url: data.publicUrl })
+    await (supabase
+      .from('staff') as ReturnType<typeof supabase.from>)
+      .update({ avatar_url: data.publicUrl } as Record<string, unknown>)
       .eq('id', id);
 
     return data.publicUrl;

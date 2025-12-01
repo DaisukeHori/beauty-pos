@@ -45,34 +45,34 @@ export const storeService = {
 
   async create(store: StoreInsert): Promise<Store> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('stores')
-      .insert(store)
+    const { data, error } = await (supabase
+      .from('stores') as ReturnType<typeof supabase.from>)
+      .insert(store as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Store;
   },
 
   async update(id: string, updates: StoreUpdate): Promise<Store> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('stores')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('stores') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Store;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('stores')
-      .update({ is_active: false })
+    const { error } = await (supabase
+      .from('stores') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -80,28 +80,28 @@ export const storeService = {
 
   async updateBusinessHours(id: string, businessHours: Record<string, unknown>): Promise<Store> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('stores')
-      .update({ business_hours: businessHours })
+    const { data, error } = await (supabase
+      .from('stores') as ReturnType<typeof supabase.from>)
+      .update({ business_hours: businessHours } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Store;
   },
 
   async updateHolidays(id: string, holidays: unknown[]): Promise<Store> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('stores')
-      .update({ holidays })
+    const { data, error } = await (supabase
+      .from('stores') as ReturnType<typeof supabase.from>)
+      .update({ holidays } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Store;
   },
 
   async reorder(companyId: string, storeIds: string[]): Promise<void> {
@@ -113,9 +113,9 @@ export const storeService = {
     }));
 
     for (const update of updates) {
-      await supabase
-        .from('stores')
-        .update({ sort_order: update.sort_order })
+      await (supabase
+        .from('stores') as ReturnType<typeof supabase.from>)
+        .update({ sort_order: update.sort_order } as Record<string, unknown>)
         .eq('id', update.id)
         .eq('company_id', companyId);
     }

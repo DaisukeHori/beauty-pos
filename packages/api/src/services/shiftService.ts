@@ -140,13 +140,13 @@ export const shiftService = {
   async create(shift: ShiftInsert): Promise<Shift> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('shifts')
+    const { data, error } = await (supabase
+      .from('shifts') as ReturnType<typeof supabase.from>)
       .insert({
         ...shift,
         break_minutes: shift.break_minutes ?? 60,
         status: shift.status ?? 'scheduled',
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -158,14 +158,14 @@ export const shiftService = {
   async createBulk(shifts: ShiftInsert[]): Promise<Shift[]> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('shifts')
+    const { data, error } = await (supabase
+      .from('shifts') as ReturnType<typeof supabase.from>)
       .insert(
         shifts.map(s => ({
           ...s,
           break_minutes: s.break_minutes ?? 60,
           status: s.status ?? 'scheduled',
-        }))
+        })) as Record<string, unknown>[]
       )
       .select();
 
@@ -177,12 +177,12 @@ export const shiftService = {
   async update(shiftId: string, updates: ShiftUpdate): Promise<Shift> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('shifts')
+    const { data, error } = await (supabase
+      .from('shifts') as ReturnType<typeof supabase.from>)
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', shiftId)
       .select()
       .single();
@@ -228,6 +228,8 @@ export const shiftService = {
       return [];
     }
 
+    const typedSourceShifts = sourceShifts as Shift[];
+
     // Calculate day offset
     const sourceDateObj = new Date(sourceStartDate);
     const targetDateObj = new Date(targetStartDate);
@@ -236,7 +238,7 @@ export const shiftService = {
     );
 
     // Create new shifts with adjusted dates
-    const newShifts: ShiftInsert[] = sourceShifts.map(shift => {
+    const newShifts: ShiftInsert[] = typedSourceShifts.map(shift => {
       const shiftDate = new Date(shift.date);
       shiftDate.setDate(shiftDate.getDate() + dayOffset);
 
@@ -335,13 +337,13 @@ export const attendanceService = {
     const supabase = getSupabaseClient();
     const now = new Date().toISOString();
 
-    const { data, error } = await supabase
-      .from('attendances')
+    const { data, error } = await (supabase
+      .from('attendances') as ReturnType<typeof supabase.from>)
       .insert({
         ...attendance,
         clock_in: attendance.clock_in || now,
         status: 'clocked_in',
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -362,21 +364,22 @@ export const attendanceService = {
       .single();
 
     if (fetchError) throw fetchError;
+    const currentAttendance = current as Attendance;
 
     // Calculate total work minutes
-    const clockIn = new Date(current.clock_in);
+    const clockIn = new Date(currentAttendance.clock_in!);
     const clockOut = new Date(now);
     const totalMinutes = Math.floor((clockOut.getTime() - clockIn.getTime()) / (1000 * 60));
-    const totalWorkMinutes = totalMinutes - (current.total_break_minutes || 0);
+    const totalWorkMinutes = totalMinutes - (currentAttendance.total_break_minutes || 0);
 
-    const { data, error } = await supabase
-      .from('attendances')
+    const { data, error } = await (supabase
+      .from('attendances') as ReturnType<typeof supabase.from>)
       .update({
         clock_out: now,
         total_work_minutes: totalWorkMinutes,
         status: 'clocked_out',
         updated_at: now,
-      })
+      } as Record<string, unknown>)
       .eq('id', attendanceId)
       .select()
       .single();
@@ -390,13 +393,13 @@ export const attendanceService = {
     const supabase = getSupabaseClient();
     const now = new Date().toISOString();
 
-    const { data, error } = await supabase
-      .from('attendances')
+    const { data, error } = await (supabase
+      .from('attendances') as ReturnType<typeof supabase.from>)
       .update({
         break_start: now,
         status: 'on_break',
         updated_at: now,
-      })
+      } as Record<string, unknown>)
       .eq('id', attendanceId)
       .select()
       .single();
@@ -418,22 +421,23 @@ export const attendanceService = {
       .single();
 
     if (fetchError) throw fetchError;
+    const currentAttendance = current as Attendance;
 
     // Calculate break duration
-    const breakStart = new Date(current.break_start);
+    const breakStart = new Date(currentAttendance.break_start!);
     const breakEnd = new Date(now);
     const breakMinutes = Math.floor((breakEnd.getTime() - breakStart.getTime()) / (1000 * 60));
-    const totalBreakMinutes = (current.total_break_minutes || 0) + breakMinutes;
+    const totalBreakMinutes = (currentAttendance.total_break_minutes || 0) + breakMinutes;
 
-    const { data, error } = await supabase
-      .from('attendances')
+    const { data, error } = await (supabase
+      .from('attendances') as ReturnType<typeof supabase.from>)
       .update({
         break_start: null,
         break_end: now,
         total_break_minutes: totalBreakMinutes,
         status: 'clocked_in',
         updated_at: now,
-      })
+      } as Record<string, unknown>)
       .eq('id', attendanceId)
       .select()
       .single();
@@ -446,12 +450,12 @@ export const attendanceService = {
   async update(attendanceId: string, updates: AttendanceUpdate): Promise<Attendance> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('attendances')
+    const { data, error } = await (supabase
+      .from('attendances') as ReturnType<typeof supabase.from>)
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', attendanceId)
       .select()
       .single();
@@ -486,9 +490,10 @@ export const attendanceService = {
 
     if (error) throw error;
 
-    const totalWorkDays = data?.length || 0;
-    const totalWorkMinutes = data?.reduce((sum, a) => sum + (a.total_work_minutes || 0), 0) || 0;
-    const totalBreakMinutes = data?.reduce((sum, a) => sum + (a.total_break_minutes || 0), 0) || 0;
+    const attendanceData = (data || []) as Array<{ total_work_minutes: number | null; total_break_minutes: number | null }>;
+    const totalWorkDays = attendanceData.length;
+    const totalWorkMinutes = attendanceData.reduce((sum, a) => sum + (a.total_work_minutes || 0), 0);
+    const totalBreakMinutes = attendanceData.reduce((sum, a) => sum + (a.total_break_minutes || 0), 0);
 
     return {
       totalWorkDays,

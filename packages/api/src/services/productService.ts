@@ -89,34 +89,34 @@ export const productService = {
 
   async create(product: ProductInsert): Promise<Product> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('products')
-      .insert(product)
+    const { data, error } = await (supabase
+      .from('products') as ReturnType<typeof supabase.from>)
+      .insert(product as Record<string, unknown>)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Product;
   },
 
   async update(id: string, updates: ProductUpdate): Promise<Product> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('products')
-      .update(updates)
+    const { data, error } = await (supabase
+      .from('products') as ReturnType<typeof supabase.from>)
+      .update(updates as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    return data as Product;
   },
 
   async delete(id: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('products')
-      .update({ is_active: false, deleted_at: new Date().toISOString() })
+    const { error } = await (supabase
+      .from('products') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false, deleted_at: new Date().toISOString() } as Record<string, unknown>)
       .eq('id', id);
 
     if (error) throw error;
@@ -126,7 +126,7 @@ export const productService = {
     const supabase = getSupabaseClient();
 
     // Get current stock
-    const { data: product, error: getError } = await supabase
+    const { data: productData, error: getError } = await supabase
       .from('products')
       .select('stock_quantity, company_id, store_id')
       .eq('id', id)
@@ -134,12 +134,13 @@ export const productService = {
 
     if (getError) throw getError;
 
+    const product = productData as { stock_quantity?: number; company_id: string; store_id: string };
     const newQuantity = (product.stock_quantity || 0) + quantity;
 
     // Update stock
-    const { data, error } = await supabase
-      .from('products')
-      .update({ stock_quantity: newQuantity })
+    const { data, error } = await (supabase
+      .from('products') as ReturnType<typeof supabase.from>)
+      .update({ stock_quantity: newQuantity } as Record<string, unknown>)
       .eq('id', id)
       .select()
       .single();
@@ -147,8 +148,8 @@ export const productService = {
     if (error) throw error;
 
     // Log stock movement
-    await supabase
-      .from('stock_movements')
+    await (supabase
+      .from('stock_movements') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: product.company_id,
         store_id: product.store_id,
@@ -158,9 +159,9 @@ export const productService = {
         quantity_after: newQuantity,
         reason,
         created_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
 
-    return data;
+    return data as Product;
   },
 
   async search(companyId: string, storeId: string, query: string): Promise<Product[]> {
@@ -189,7 +190,8 @@ export const productService = {
 
     if (error) throw error;
 
-    const categories = [...new Set(data?.map(p => p.category).filter(Boolean))];
+    const typedData = data as Array<{ category?: string }> | null;
+    const categories = [...new Set(typedData?.map(p => p.category).filter(Boolean))];
     return categories as string[];
   },
 };

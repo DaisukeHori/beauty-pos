@@ -54,8 +54,13 @@ export const staffPerformanceService = {
 
     const performances: StaffPerformance[] = [];
 
-    for (const item of staffList || []) {
-      const staff = item.staff as { id: string; first_name: string; last_name: string; avatar_url?: string };
+    interface StaffStoreItem {
+      staff?: { id: string; first_name: string; last_name: string; avatar_url?: string };
+    }
+    const typedStaffList = (staffList || []) as StaffStoreItem[];
+
+    for (const item of typedStaffList) {
+      const staff = item.staff;
       if (!staff) continue;
 
       // Get sales data for this staff
@@ -86,7 +91,16 @@ export const staffPerformanceService = {
       let menuSales = 0;
       const customerIds = new Set<string>();
 
-      for (const saleItem of salesData || []) {
+      interface SaleItemData {
+        id: string;
+        subtotal?: number;
+        nomination_fee?: number;
+        item_type?: string;
+        sale?: { id: string; customer_id?: string; sale_date: string };
+      }
+      const typedSalesData = (salesData || []) as SaleItemData[];
+
+      for (const saleItem of typedSalesData) {
         totalSales += saleItem.subtotal || 0;
 
         if (saleItem.nomination_fee && saleItem.nomination_fee > 0) {
@@ -100,7 +114,7 @@ export const staffPerformanceService = {
           menuSales += saleItem.subtotal || 0;
         }
 
-        const sale = saleItem.sale as { id: string; customer_id?: string; sale_date: string } | null;
+        const sale = saleItem.sale;
         if (sale?.customer_id) {
           customerIds.add(sale.customer_id);
         }
@@ -225,7 +239,14 @@ export const staffPerformanceService = {
     let nominationCount = 0;
     const dailySalesMap: Record<string, number> = {};
 
-    for (const item of salesData || []) {
+    interface SaleItemData {
+      subtotal?: number;
+      nomination_fee?: number;
+      created_at: string;
+    }
+    const typedSalesData = (salesData || []) as SaleItemData[];
+
+    for (const item of typedSalesData) {
       totalSales += item.subtotal || 0;
 
       if (item.nomination_fee && item.nomination_fee > 0) {
@@ -301,7 +322,14 @@ export const staffPerformanceService = {
     let nominationRevenue = 0;
     let productSales = 0;
 
-    for (const item of salesData || []) {
+    interface IncentiveSaleItem {
+      subtotal?: number;
+      nomination_fee?: number;
+      item_type?: string;
+    }
+    const typedSalesData = (salesData || []) as IncentiveSaleItem[];
+
+    for (const item of typedSalesData) {
       if (item.item_type === 'product') {
         productSales += item.subtotal || 0;
       } else {
@@ -370,7 +398,15 @@ export const staffPerformanceService = {
     const hourlyBreakdown: { hour: number; sales: number; count: number }[] =
       Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0, count: 0 }));
 
-    for (const sale of sales || []) {
+    interface SaleData {
+      total?: number;
+      customer_id?: string;
+      sale_date: string;
+      items?: Array<{ subtotal: number; staff_id: string; staff?: { first_name: string; last_name: string } }>;
+    }
+    const typedSales = (sales || []) as SaleData[];
+
+    for (const sale of typedSales) {
       totalSales += sale.total || 0;
 
       if (sale.customer_id) {

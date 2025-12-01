@@ -160,12 +160,18 @@ export const memberRankService = {
       .single();
 
     if (data) {
+      const configData = data as {
+        calculation_basis?: string;
+        calculation_period_months?: number;
+        auto_downgrade?: boolean;
+        downgrade_grace_period_days?: number;
+      };
       return {
         companyId,
-        calculationBasis: data.calculation_basis || 'spend',
-        calculationPeriodMonths: data.calculation_period_months || 12,
-        autoDowngrade: data.auto_downgrade || false,
-        downgradeGracePeriodDays: data.downgrade_grace_period_days || 30,
+        calculationBasis: (configData.calculation_basis as 'spend' | 'visits' | 'points' | 'combined') || 'spend',
+        calculationPeriodMonths: configData.calculation_period_months || 12,
+        autoDowngrade: configData.auto_downgrade || false,
+        downgradeGracePeriodDays: configData.downgrade_grace_period_days || 30,
       };
     }
 
@@ -184,15 +190,15 @@ export const memberRankService = {
   async saveConfig(config: MemberRankConfig): Promise<void> {
     const supabase = getSupabaseClient();
 
-    await supabase
-      .from('member_rank_config')
+    await (supabase
+      .from('member_rank_config') as ReturnType<typeof supabase.from>)
       .upsert({
         company_id: config.companyId,
         calculation_basis: config.calculationBasis,
         calculation_period_months: config.calculationPeriodMonths,
         auto_downgrade: config.autoDowngrade,
         downgrade_grace_period_days: config.downgradeGracePeriodDays,
-      }, {
+      } as Record<string, unknown>, {
         onConflict: 'company_id',
       });
   },
@@ -323,7 +329,8 @@ export const memberRankService = {
       .eq('id', customerId)
       .single();
 
-    const totalPoints = customer?.points_balance || 0;
+    const customerData = customer as { points_balance?: number } | null;
+    const totalPoints = customerData?.points_balance || 0;
 
     return {
       totalSpend,
@@ -393,7 +400,8 @@ export const memberRankService = {
       .eq('id', customerId)
       .single();
 
-    const previousRankId = customer?.member_rank_id;
+    const customerData = customer as { member_rank_id?: string } | null;
+    const previousRankId = customerData?.member_rank_id;
     const previousRank = previousRankId
       ? ranks.find(r => r.id === previousRankId)
       : ranks.find(r => r.isDefault);
@@ -416,17 +424,17 @@ export const memberRankService = {
     }
 
     // Update customer rank
-    await supabase
-      .from('customers')
+    await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         member_rank_id: newRank.id,
         rank_updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId);
 
     // Record rank change
-    await supabase
-      .from('customer_rank_history')
+    await (supabase
+      .from('customer_rank_history') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -437,7 +445,7 @@ export const memberRankService = {
           ? `${stats.totalSpend.toLocaleString()}円の利用達成`
           : '利用実績の減少',
         changed_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
 
     return {
       changed: true,
@@ -485,7 +493,8 @@ export const memberRankService = {
     let promotions = 0;
     let demotions = 0;
 
-    for (const customer of customers) {
+    const typedCustomers = customers as Array<{ id: string }>;
+    for (const customer of typedCustomers) {
       const result = await this.checkAndUpdateRank(companyId, customer.id);
       if (result.changed) {
         if (result.changeType === 'promotion') promotions++;
@@ -522,9 +531,9 @@ export const memberRankService = {
     };
 
     if (rank.id && !rank.id.startsWith('default-')) {
-      const { data, error } = await supabase
-        .from('member_ranks')
-        .update(record)
+      const { data, error } = await (supabase
+        .from('member_ranks') as ReturnType<typeof supabase.from>)
+        .update(record as Record<string, unknown>)
         .eq('id', rank.id)
         .select()
         .single();
@@ -532,9 +541,9 @@ export const memberRankService = {
       if (error) throw error;
       return this.mapRank(data);
     } else {
-      const { data, error } = await supabase
-        .from('member_ranks')
-        .insert(record)
+      const { data, error } = await (supabase
+        .from('member_ranks') as ReturnType<typeof supabase.from>)
+        .insert(record as Record<string, unknown>)
         .select()
         .single();
 
@@ -549,9 +558,9 @@ export const memberRankService = {
   async deleteRank(rankId: string): Promise<void> {
     const supabase = getSupabaseClient();
 
-    await supabase
-      .from('member_ranks')
-      .update({ is_active: false })
+    await (supabase
+      .from('member_ranks') as ReturnType<typeof supabase.from>)
+      .update({ is_active: false } as Record<string, unknown>)
       .eq('id', rankId);
   },
 };

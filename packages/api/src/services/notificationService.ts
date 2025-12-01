@@ -63,12 +63,12 @@ export const notificationService = {
   async create(notification: NotificationInsert): Promise<Notification> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('notifications')
+    const { data, error } = await (supabase
+      .from('notifications') as ReturnType<typeof supabase.from>)
       .insert({
         ...notification,
         status: 'pending',
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
@@ -80,9 +80,9 @@ export const notificationService = {
   async createBulk(notifications: NotificationInsert[]): Promise<Notification[]> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(notifications.map(n => ({ ...n, status: 'pending' })))
+    const { data, error } = await (supabase
+      .from('notifications') as ReturnType<typeof supabase.from>)
+      .insert(notifications.map(n => ({ ...n, status: 'pending' })) as Record<string, unknown>[])
       .select();
 
     if (error) throw error;
@@ -138,13 +138,13 @@ export const notificationService = {
   async markAsRead(notificationId: string): Promise<Notification> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('notifications')
+    const { data, error } = await (supabase
+      .from('notifications') as ReturnType<typeof supabase.from>)
       .update({
         status: 'read',
         read_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', notificationId)
       .select()
       .single();
@@ -157,13 +157,13 @@ export const notificationService = {
   async markAllAsRead(staffId: string): Promise<void> {
     const supabase = getSupabaseClient();
 
-    const { error } = await supabase
-      .from('notifications')
+    const { error } = await (supabase
+      .from('notifications') as ReturnType<typeof supabase.from>)
       .update({
         status: 'read',
         read_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('staff_id', staffId)
       .is('read_at', null);
 
@@ -354,9 +354,9 @@ export const notificationService = {
       updateData.error_message = errorMessage;
     }
 
-    const { data, error } = await supabase
-      .from('notifications')
-      .update(updateData)
+    const { data, error } = await (supabase
+      .from('notifications') as ReturnType<typeof supabase.from>)
+      .update(updateData as Record<string, unknown>)
       .eq('id', notificationId)
       .select()
       .single();
@@ -408,14 +408,14 @@ export const notificationPreferenceService = {
   ): Promise<NotificationPreference> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('notification_preferences')
+    const { data, error } = await (supabase
+      .from('notification_preferences') as ReturnType<typeof supabase.from>)
       .upsert({
         customer_id: customerId,
         channel,
         ...preferences,
         updated_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .select()
       .single();
 
