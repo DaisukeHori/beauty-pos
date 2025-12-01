@@ -23,6 +23,8 @@ import {
   ticketService,
   pointService,
   printService,
+  stripePaymentService,
+  featureSettingsService,
   type VisitWithDetails,
   type Coupon,
   type Ticket,
