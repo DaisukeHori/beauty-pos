@@ -95,6 +95,12 @@ export default function SettingsScreen() {
       showArrow: true,
     },
     {
+      label: 'シフト・勤怠管理',
+      icon: '📅',
+      onPress: () => router.push('/admin/shifts'),
+      showArrow: true,
+    },
+    {
       label: 'クーポン管理',
       icon: '🎟️',
       onPress: () => router.push('/admin/coupons'),

@@ -143,3 +143,28 @@ export type {
   PointTransaction,
   PointTransactionInsert,
 } from './pointService';
+
+export { shiftService, attendanceService } from './shiftService';
+export type {
+  Shift,
+  ShiftInsert,
+  ShiftUpdate,
+  Attendance,
+  AttendanceInsert,
+  AttendanceUpdate,
+} from './shiftService';
+
+export { notificationService, notificationPreferenceService } from './notificationService';
+export type {
+  Notification,
+  NotificationInsert,
+  NotificationTemplate,
+  NotificationPreference,
+} from './notificationService';
+
+export { printService } from './printService';
+export type {
+  ReceiptData,
+  PrintJob,
+  Printer,
+} from './printService';

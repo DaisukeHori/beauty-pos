@@ -19,7 +19,13 @@ import {
   productService,
   customerService,
   staffService,
+  couponService,
+  ticketService,
+  pointService,
+  printService,
   type VisitWithDetails,
+  type Coupon,
+  type Ticket,
 } from '@beauty-pos/api';
 import { getSupabaseClient } from '@beauty-pos/api';
 
@@ -108,6 +114,13 @@ export default function CheckoutScreen() {
   const [visit, setVisit] = useState<VisitWithDetails | null>(null);
   const [customer, setCustomer] = useState<CustomerInfo | null>(null);
 
+  // Coupon/Ticket states
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [customerTickets, setCustomerTickets] = useState<Ticket[]>([]);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [appliedTicket, setAppliedTicket] = useState<Ticket | null>(null);
+
   // Cart state
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -121,6 +134,8 @@ export default function CheckoutScreen() {
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [showTicketModal, setShowTicketModal] = useState(false);
   const [selectedCartItemId, setSelectedCartItemId] = useState<string | null>(null);
 
   // Payment input states
@@ -173,6 +188,10 @@ export default function CheckoutScreen() {
           nominationFee: s.nomination_fee || 0,
         })));
 
+        // Load available coupons
+        const couponsData = await couponService.getActive(company.id);
+        setAvailableCoupons(couponsData);
+
         // Load visit if visitId provided
         if (params.visitId) {
           const visitData = await visitService.getById(params.visitId);
@@ -187,6 +206,14 @@ export default function CheckoutScreen() {
                 phone: visitData.customer.phone || '',
                 points: visitData.customer.points_balance || 0,
               });
+
+              // Load customer tickets
+              try {
+                const ticketsData = await ticketService.getCustomerTickets(visitData.customer.id);
+                setCustomerTickets(ticketsData.filter(t => t.remaining_uses > 0));
+              } catch (e) {
+                console.log('No tickets found for customer');
+              }
             }
           }
         }
@@ -355,6 +382,99 @@ export default function CheckoutScreen() {
     setShowDiscountModal(false);
   };
 
+  // Apply coupon by code
+  const applyCouponByCode = async () => {
+    if (!couponCode.trim() || !company?.id) return;
+
+    try {
+      const coupon = await couponService.validateCode(company.id, couponCode.trim());
+      if (coupon) {
+        applyCoupon(coupon);
+        setCouponCode('');
+      } else {
+        Alert.alert('エラー', '無効なクーポンコードです');
+      }
+    } catch (error) {
+      Alert.alert('エラー', 'クーポンの確認に失敗しました');
+    }
+  };
+
+  // Apply coupon
+  const applyCoupon = (coupon: Coupon) => {
+    if (appliedCoupon) {
+      Alert.alert('エラー', 'クーポンは1つのみ適用できます');
+      return;
+    }
+
+    const discountValue = coupon.discount_type === 'percentage'
+      ? coupon.discount_value
+      : coupon.discount_type === 'fixed'
+        ? coupon.discount_value
+        : 0;
+
+    const discountName = coupon.discount_type === 'percentage'
+      ? `${coupon.name} (${coupon.discount_value}%OFF)`
+      : coupon.discount_type === 'fixed'
+        ? `${coupon.name} (¥${coupon.discount_value}OFF)`
+        : `${coupon.name} (無料施術)`;
+
+    const newDiscount: Discount = {
+      type: 'coupon',
+      name: discountName,
+      value: discountValue,
+      valueType: coupon.discount_type === 'percentage' ? 'percentage' : 'fixed',
+      sourceId: coupon.id,
+    };
+
+    setDiscounts([...discounts, newDiscount]);
+    setAppliedCoupon(coupon);
+    setShowCouponModal(false);
+  };
+
+  // Remove coupon
+  const removeCoupon = () => {
+    setDiscounts(discounts.filter(d => d.type !== 'coupon'));
+    setAppliedCoupon(null);
+  };
+
+  // Apply ticket
+  const applyTicket = (ticket: Ticket) => {
+    if (appliedTicket) {
+      Alert.alert('エラー', '回数券は1つのみ適用できます');
+      return;
+    }
+
+    // Find matching menu item in cart
+    const matchingCartItem = cartItems.find(item =>
+      item.type === 'menu' && item.itemId === ticket.menu_id
+    );
+
+    if (!matchingCartItem) {
+      Alert.alert('エラー', 'この回数券に対応するメニューがカートにありません');
+      return;
+    }
+
+    const discountValue = matchingCartItem.basePrice + matchingCartItem.hairLengthCharge;
+
+    const newDiscount: Discount = {
+      type: 'ticket',
+      name: `${ticket.menu?.name || '回数券'} (回数券利用)`,
+      value: discountValue,
+      valueType: 'fixed',
+      sourceId: ticket.id,
+    };
+
+    setDiscounts([...discounts, newDiscount]);
+    setAppliedTicket(ticket);
+    setShowTicketModal(false);
+  };
+
+  // Remove ticket
+  const removeTicket = () => {
+    setDiscounts(discounts.filter(d => d.type !== 'ticket'));
+    setAppliedTicket(null);
+  };
+
   // Remove discount
   const removeDiscount = (index: number) => {
     setDiscounts(discounts.filter((_, i) => i !== index));
@@ -469,6 +589,42 @@ export default function CheckoutScreen() {
         await visitService.checkOut(params.visitId);
       }
 
+      // Record coupon usage if applied
+      if (appliedCoupon && customer?.id) {
+        try {
+          await couponService.use(appliedCoupon.id, customer.id, sale.id);
+        } catch (e) {
+          console.error('Failed to record coupon usage:', e);
+        }
+      }
+
+      // Record ticket usage if applied
+      if (appliedTicket) {
+        try {
+          await ticketService.use(appliedTicket.id, sale.id, staff?.id || undefined);
+        } catch (e) {
+          console.error('Failed to record ticket usage:', e);
+        }
+      }
+
+      // Record point transaction if points were used
+      if (pointsToUse > 0 && customer?.id) {
+        try {
+          await pointService.usePoints(company.id, customer.id, pointsToUse, sale.id, '会計でのポイント使用');
+        } catch (e) {
+          console.error('Failed to record point usage:', e);
+        }
+      }
+
+      // Record earned points
+      if (calcResult.pointsEarned > 0 && customer?.id) {
+        try {
+          await pointService.earnPoints(company.id, customer.id, calcResult.pointsEarned, sale.id, '会計でのポイント獲得');
+        } catch (e) {
+          console.error('Failed to record earned points:', e);
+        }
+      }
+
       // Update customer points if applicable
       // Note: total_spent is updated by the calculate-sale Edge Function
       if (customer?.id) {
@@ -501,10 +657,26 @@ export default function CheckoutScreen() {
     if (!saleResult?.saleId) return;
 
     try {
-      // In a real app, this would call a print service or Edge Function
       showToast('レシートを印刷しています...', 'info');
-      // await receiptService.print(saleResult.saleId);
+
+      const result = await printService.printReceipt(saleResult.saleId);
+
+      if (result.success) {
+        showToast('レシートを印刷しました', 'success');
+      } else {
+        // If network printing fails, try to show receipt preview for manual print
+        const receiptData = await printService.buildReceiptData(saleResult.saleId);
+        if (receiptData) {
+          const html = printService.generateReceiptHtml(receiptData);
+          // In a production app, we would open a WebView or native print dialog
+          console.log('Receipt HTML generated for manual printing');
+          showToast('印刷準備完了 - 手動で印刷してください', 'info');
+        } else {
+          showToast('印刷データの取得に失敗しました', 'error');
+        }
+      }
     } catch (error) {
+      console.error('Print error:', error);
       showToast('印刷に失敗しました', 'error');
     }
   };
@@ -954,6 +1126,38 @@ export default function CheckoutScreen() {
         title="割引追加"
         size="md"
       >
+        {/* Coupon and Ticket buttons */}
+        <View style={styles.discountOptionsRow}>
+          <TouchableOpacity
+            style={[styles.discountOptionButton, appliedCoupon && styles.discountOptionDisabled]}
+            onPress={() => {
+              setShowDiscountModal(false);
+              setShowCouponModal(true);
+            }}
+            disabled={!!appliedCoupon}
+          >
+            <Text style={styles.discountOptionIcon}>🎟️</Text>
+            <Text style={styles.discountOptionText}>クーポン</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.discountOptionButton, (appliedTicket || customerTickets.length === 0) && styles.discountOptionDisabled]}
+            onPress={() => {
+              setShowDiscountModal(false);
+              setShowTicketModal(true);
+            }}
+            disabled={!!appliedTicket || customerTickets.length === 0}
+          >
+            <Text style={styles.discountOptionIcon}>🎫</Text>
+            <Text style={styles.discountOptionText}>回数券</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.discountDivider}>
+          <View style={styles.discountDividerLine} />
+          <Text style={styles.discountDividerText}>または手動割引</Text>
+          <View style={styles.discountDividerLine} />
+        </View>
+
         <View style={styles.discountTypeSelector}>
           <TouchableOpacity
             style={[
@@ -1001,6 +1205,114 @@ export default function CheckoutScreen() {
         <Button fullWidth onPress={addManualDiscount} style={styles.modalButton}>
           追加
         </Button>
+      </Modal>
+
+      {/* Coupon Modal */}
+      <Modal
+        visible={showCouponModal}
+        onClose={() => setShowCouponModal(false)}
+        title="クーポン選択"
+        size="md"
+      >
+        {/* Coupon code input */}
+        <View style={styles.couponCodeSection}>
+          <Text style={styles.couponCodeLabel}>クーポンコード入力</Text>
+          <View style={styles.couponCodeInputRow}>
+            <TextInput
+              style={styles.couponCodeInput}
+              value={couponCode}
+              onChangeText={setCouponCode}
+              placeholder="クーポンコードを入力"
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity style={styles.couponCodeButton} onPress={applyCouponByCode}>
+              <Text style={styles.couponCodeButtonText}>適用</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.discountDivider}>
+          <View style={styles.discountDividerLine} />
+          <Text style={styles.discountDividerText}>または選択</Text>
+          <View style={styles.discountDividerLine} />
+        </View>
+
+        <ScrollView style={styles.couponList}>
+          {availableCoupons.length === 0 ? (
+            <Text style={styles.noCouponsText}>利用可能なクーポンがありません</Text>
+          ) : (
+            availableCoupons.map((coupon) => (
+              <TouchableOpacity
+                key={coupon.id}
+                style={styles.couponItem}
+                onPress={() => applyCoupon(coupon)}
+              >
+                <View style={styles.couponItemLeft}>
+                  <Text style={styles.couponItemName}>{coupon.name}</Text>
+                  <Text style={styles.couponItemDesc}>
+                    {coupon.discount_type === 'percentage'
+                      ? `${coupon.discount_value}% OFF`
+                      : coupon.discount_type === 'fixed'
+                        ? `¥${coupon.discount_value} OFF`
+                        : '無料施術'}
+                  </Text>
+                  {coupon.valid_until && (
+                    <Text style={styles.couponItemExpiry}>
+                      有効期限: {new Date(coupon.valid_until).toLocaleDateString('ja-JP')}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.couponItemArrow}>›</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      </Modal>
+
+      {/* Ticket Modal */}
+      <Modal
+        visible={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        title="回数券選択"
+        size="md"
+      >
+        <ScrollView style={styles.ticketList}>
+          {customerTickets.length === 0 ? (
+            <Text style={styles.noTicketsText}>利用可能な回数券がありません</Text>
+          ) : (
+            customerTickets.map((ticket) => {
+              const hasMatchingItem = cartItems.some(
+                item => item.type === 'menu' && item.itemId === ticket.menu_id
+              );
+
+              return (
+                <TouchableOpacity
+                  key={ticket.id}
+                  style={[styles.ticketItem, !hasMatchingItem && styles.ticketItemDisabled]}
+                  onPress={() => hasMatchingItem && applyTicket(ticket)}
+                  disabled={!hasMatchingItem}
+                >
+                  <View style={styles.ticketItemLeft}>
+                    <Text style={styles.ticketItemName}>{ticket.menu?.name || '回数券'}</Text>
+                    <Text style={styles.ticketItemRemaining}>
+                      残り {ticket.remaining_uses} 回
+                    </Text>
+                    {ticket.expires_at && (
+                      <Text style={styles.ticketItemExpiry}>
+                        有効期限: {new Date(ticket.expires_at).toLocaleDateString('ja-JP')}
+                      </Text>
+                    )}
+                  </View>
+                  {hasMatchingItem ? (
+                    <Text style={styles.ticketItemArrow}>›</Text>
+                  ) : (
+                    <Text style={styles.ticketItemHint}>カートにメニューを追加</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </ScrollView>
       </Modal>
 
       {/* Receipt Preview Modal */}
@@ -1666,5 +1978,160 @@ const styles = StyleSheet.create({
   },
   receiptButton: {
     marginBottom: spacing[2],
+  },
+  // Discount options (coupon/ticket buttons)
+  discountOptionsRow: {
+    flexDirection: 'row',
+    marginBottom: spacing[4],
+  },
+  discountOptionButton: {
+    flex: 1,
+    alignItems: 'center',
+    padding: spacing[4],
+    backgroundColor: colors.neutral[50],
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing[1],
+  },
+  discountOptionDisabled: {
+    opacity: 0.5,
+  },
+  discountOptionIcon: {
+    fontSize: 32,
+    marginBottom: spacing[1],
+  },
+  discountOptionText: {
+    ...textStyles.label,
+    color: colors.neutral[700],
+  },
+  discountDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[4],
+  },
+  discountDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.neutral[200],
+  },
+  discountDividerText: {
+    ...textStyles.caption,
+    color: colors.neutral[400],
+    marginHorizontal: spacing[2],
+  },
+  // Coupon modal styles
+  couponCodeSection: {
+    marginBottom: spacing[3],
+  },
+  couponCodeLabel: {
+    ...textStyles.labelSm,
+    color: colors.neutral[600],
+    marginBottom: spacing[1],
+  },
+  couponCodeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  couponCodeInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.neutral[50],
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing[3],
+    ...textStyles.body,
+  },
+  couponCodeButton: {
+    marginLeft: spacing[2],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2.5],
+    backgroundColor: colors.primary[500],
+    borderRadius: borderRadius.lg,
+  },
+  couponCodeButtonText: {
+    ...textStyles.label,
+    color: colors.white,
+  },
+  couponList: {
+    maxHeight: 300,
+  },
+  noCouponsText: {
+    ...textStyles.body,
+    color: colors.neutral[400],
+    textAlign: 'center',
+    paddingVertical: spacing[8],
+  },
+  couponItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing[3],
+    backgroundColor: colors.neutral[50],
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[2],
+  },
+  couponItemLeft: {
+    flex: 1,
+  },
+  couponItemName: {
+    ...textStyles.label,
+    color: colors.neutral[900],
+  },
+  couponItemDesc: {
+    ...textStyles.bodySm,
+    color: colors.primary[600],
+    marginTop: spacing[0.5],
+  },
+  couponItemExpiry: {
+    ...textStyles.caption,
+    color: colors.neutral[500],
+    marginTop: spacing[0.5],
+  },
+  couponItemArrow: {
+    fontSize: 24,
+    color: colors.neutral[400],
+  },
+  // Ticket modal styles
+  ticketList: {
+    maxHeight: 300,
+  },
+  noTicketsText: {
+    ...textStyles.body,
+    color: colors.neutral[400],
+    textAlign: 'center',
+    paddingVertical: spacing[8],
+  },
+  ticketItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing[3],
+    backgroundColor: colors.neutral[50],
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing[2],
+  },
+  ticketItemDisabled: {
+    opacity: 0.5,
+  },
+  ticketItemLeft: {
+    flex: 1,
+  },
+  ticketItemName: {
+    ...textStyles.label,
+    color: colors.neutral[900],
+  },
+  ticketItemRemaining: {
+    ...textStyles.bodySm,
+    color: colors.primary[600],
+    marginTop: spacing[0.5],
+  },
+  ticketItemExpiry: {
+    ...textStyles.caption,
+    color: colors.neutral[500],
+    marginTop: spacing[0.5],
+  },
+  ticketItemArrow: {
+    fontSize: 24,
+    color: colors.neutral[400],
+  },
+  ticketItemHint: {
+    ...textStyles.caption,
+    color: colors.neutral[400],
   },
 });
