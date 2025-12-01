@@ -119,3 +119,21 @@ export type {
   DailyReportInsert,
   DailyReportUpdate,
 } from './dailyReportService';
+
+export { hairStyleService } from './hairStyleService';
+export type {
+  HairStyleCategory,
+  HairStyle,
+  HairStyleWithCategory,
+  HairStyleFavorite,
+  HairStyleInsert,
+  HairStyleUpdate,
+  HairStyleSearchParams,
+} from './hairStyleService';
+
+export { proposalService } from './proposalService';
+export type {
+  StyleProposal,
+  StyleProposalWithDetails,
+  CreateProposalData,
+} from './proposalService';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,113 +8,138 @@ import {
   TextInput,
   FlatList,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
+  Image,
 } from 'react-native';
 import { Card, Badge, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { hairStyleService, HairStyle } from '@beauty-pos/api';
 
-interface HairStyle {
-  id: string;
-  name: string;
-  category: string;
-  length: string;
-  tags: string[];
-  description: string;
-}
-
-const mockHairStyles: HairStyle[] = [
-  {
-    id: '1',
-    name: 'ナチュラルショートボブ',
-    category: 'ボブ',
-    length: 'ショート',
-    tags: ['人気', '小顔効果', 'お手入れ簡単'],
-    description: '清潔感のあるナチュラルなショートボブスタイル',
-  },
-  {
-    id: '2',
-    name: 'ゆるふわミディアム',
-    category: 'ミディアム',
-    length: 'ミディアム',
-    tags: ['人気', 'デート向け'],
-    description: '柔らかいウェーブが特徴のミディアムヘア',
-  },
-  {
-    id: '3',
-    name: 'エレガントロング',
-    category: 'ロング',
-    length: 'ロング',
-    tags: ['艶髪', 'フォーマル向け'],
-    description: '美しいツヤと毛流れのロングヘア',
-  },
-  {
-    id: '4',
-    name: 'カジュアルマッシュ',
-    category: 'マッシュ',
-    length: 'ショート',
-    tags: ['トレンド', 'ユニセックス'],
-    description: 'カジュアルで動きのあるマッシュスタイル',
-  },
-  {
-    id: '5',
-    name: 'パーマミディアム',
-    category: 'パーマ',
-    length: 'ミディアム',
-    tags: ['ボリュームアップ', '華やか'],
-    description: '程よいボリューム感のパーマスタイル',
-  },
-  {
-    id: '6',
-    name: 'レイヤーロング',
-    category: 'レイヤー',
-    length: 'ロング',
-    tags: ['軽やか', '動きあり'],
-    description: '軽やかな動きを出したレイヤースタイル',
-  },
+const categories = [
+  { id: 'all', label: 'すべて', length: null },
+  { id: 'short', label: 'ショート', length: 'short' },
+  { id: 'medium', label: 'ミディアム', length: 'medium' },
+  { id: 'long', label: 'ロング', length: 'long' },
 ];
-
-const categories = ['すべて', 'ショート', 'ミディアム', 'ロング', 'ボブ', 'パーマ'];
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - spacing[4] * 3) / 2;
 
+// Default company ID for customer app (should come from session/config in real app)
+const DEFAULT_COMPANY_ID = 'demo-company';
+
 export default function GalleryScreen() {
+  const [styles, setStyles] = useState<HairStyle[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('すべて');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const filteredStyles = mockHairStyles.filter((style) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      style.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      style.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+  const loadStyles = useCallback(async () => {
+    try {
+      const length = categories.find(c => c.id === selectedCategory)?.length || undefined;
+      const data = await hairStyleService.getAll(DEFAULT_COMPANY_ID, {
+        length,
+        query: searchQuery || undefined,
+      });
+      setStyles(data);
+    } catch (error) {
+      console.error('Error loading hair styles:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [selectedCategory, searchQuery]);
 
-    const matchesCategory =
-      selectedCategory === 'すべて' ||
-      style.category === selectedCategory ||
-      style.length === selectedCategory;
+  useEffect(() => {
+    loadStyles();
+  }, [loadStyles]);
 
-    return matchesSearch && matchesCategory;
-  });
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadStyles();
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setIsLoading(true);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.length >= 2 || query.length === 0) {
+      setIsLoading(true);
+    }
+  };
+
+  const handleStyleSelect = async (style: HairStyle) => {
+    // Track popularity
+    await hairStyleService.incrementPopularity(style.id);
+    // Could navigate to detail view or show modal
+  };
+
+  const getLengthLabel = (length: string | null) => {
+    switch (length) {
+      case 'short': return 'ショート';
+      case 'medium': return 'ミディアム';
+      case 'long': return 'ロング';
+      default: return '';
+    }
+  };
 
   const renderStyleCard = ({ item }: { item: HairStyle }) => (
-    <TouchableOpacity style={styles.cardWrapper} activeOpacity={0.8}>
-      <View style={styles.styleCard}>
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.placeholderIcon}>💇‍♀️</Text>
-        </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.styleName} numberOfLines={1}>
+    <TouchableOpacity
+      style={styleSheets.cardWrapper}
+      activeOpacity={0.8}
+      onPress={() => handleStyleSelect(item)}
+    >
+      <View style={styleSheets.styleCard}>
+        {item.image_url ? (
+          <Image
+            source={{ uri: item.image_url }}
+            style={styleSheets.styleImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styleSheets.imagePlaceholder}>
+            <Text style={styleSheets.placeholderIcon}>💇‍♀️</Text>
+          </View>
+        )}
+        <View style={styleSheets.cardContent}>
+          <Text style={styleSheets.styleName} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={styles.styleDescription} numberOfLines={2}>
-            {item.description}
+          <Text style={styleSheets.styleDescription} numberOfLines={2}>
+            {item.description || 'スタイルの詳細を見る'}
           </Text>
-          <View style={styles.tagsContainer}>
-            {item.tags.slice(0, 2).map((tag, index) => (
+          <View style={styleSheets.tagsContainer}>
+            {item.length && (
+              <Badge
+                colorScheme="neutral"
+                variant="subtle"
+                size="sm"
+                style={styleSheets.tag}
+              >
+                {getLengthLabel(item.length)}
+              </Badge>
+            )}
+            {item.is_featured && (
+              <Badge
+                colorScheme="primary"
+                variant="subtle"
+                size="sm"
+                style={styleSheets.tag}
+              >
+                おすすめ
+              </Badge>
+            )}
+            {item.tags?.slice(0, 1).map((tag, index) => (
               <Badge
                 key={index}
                 colorScheme={tag === '人気' ? 'primary' : 'neutral'}
                 variant="subtle"
                 size="sm"
-                style={styles.tag}
+                style={styleSheets.tag}
               >
                 {tag}
               </Badge>
@@ -125,19 +150,33 @@ export default function GalleryScreen() {
     </TouchableOpacity>
   );
 
+  if (isLoading && styles.length === 0) {
+    return (
+      <View style={styleSheets.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styleSheets.loadingText}>スタイルを読み込み中...</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={styleSheets.container}>
       {/* Search */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
+      <View style={styleSheets.searchContainer}>
+        <View style={styleSheets.searchInputContainer}>
+          <Text style={styleSheets.searchIcon}>🔍</Text>
           <TextInput
-            style={styles.searchInput}
+            style={styleSheets.searchInput}
             placeholder="スタイル名、タグで検索..."
             placeholderTextColor={colors.neutral[400]}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearch}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => handleSearch('')}>
+              <Text style={styleSheets.clearButton}>×</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -145,53 +184,106 @@ export default function GalleryScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
+        style={styleSheets.categoriesContainer}
+        contentContainerStyle={styleSheets.categoriesContent}
       >
         {categories.map((category) => (
           <TouchableOpacity
-            key={category}
+            key={category.id}
             style={[
-              styles.categoryButton,
-              selectedCategory === category && styles.categoryButtonActive,
+              styleSheets.categoryButton,
+              selectedCategory === category.id && styleSheets.categoryButtonActive,
             ]}
-            onPress={() => setSelectedCategory(category)}
+            onPress={() => handleCategoryChange(category.id)}
           >
             <Text
               style={[
-                styles.categoryText,
-                selectedCategory === category && styles.categoryTextActive,
+                styleSheets.categoryText,
+                selectedCategory === category.id && styleSheets.categoryTextActive,
               ]}
             >
-              {category}
+              {category.label}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
+      {/* Loading indicator for category/search change */}
+      {isLoading && styles.length > 0 && (
+        <View style={styleSheets.loadingOverlay}>
+          <ActivityIndicator size="small" color={colors.primary[500]} />
+        </View>
+      )}
+
       {/* Styles Grid */}
       <FlatList
-        data={filteredStyles}
+        data={styles}
         renderItem={renderStyleCard}
         keyExtractor={(item) => item.id}
         numColumns={2}
-        contentContainerStyle={styles.gridContent}
-        columnWrapperStyle={styles.gridRow}
+        contentContainerStyle={styleSheets.gridContent}
+        columnWrapperStyle={styleSheets.gridRow}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary[500]]}
+            tintColor={colors.primary[500]}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔍</Text>
-            <Text style={styles.emptyText}>該当するスタイルが見つかりません</Text>
+          <View style={styleSheets.emptyContainer}>
+            <Text style={styleSheets.emptyIcon}>🔍</Text>
+            <Text style={styleSheets.emptyText}>
+              {searchQuery
+                ? '該当するスタイルが見つかりません'
+                : 'スタイルがありません'}
+            </Text>
+            {searchQuery && (
+              <TouchableOpacity
+                style={styleSheets.clearSearchButton}
+                onPress={() => handleSearch('')}
+              >
+                <Text style={styleSheets.clearSearchText}>検索をクリア</Text>
+              </TouchableOpacity>
+            )}
           </View>
+        }
+        ListHeaderComponent={
+          styles.length > 0 ? (
+            <Text style={styleSheets.resultCount}>
+              {styles.length}件のスタイル
+            </Text>
+          ) : null
         }
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styleSheets = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[3],
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 120,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    alignItems: 'center',
   },
   searchContainer: {
     backgroundColor: colors.white,
@@ -215,6 +307,11 @@ const styles = StyleSheet.create({
     flex: 1,
     ...textStyles.body,
     color: colors.neutral[900],
+  },
+  clearButton: {
+    fontSize: 20,
+    color: colors.neutral[400],
+    padding: spacing[1],
   },
   categoriesContainer: {
     backgroundColor: colors.white,
@@ -249,6 +346,11 @@ const styles = StyleSheet.create({
   gridRow: {
     justifyContent: 'space-between',
   },
+  resultCount: {
+    ...textStyles.bodySm,
+    color: colors.neutral[500],
+    marginBottom: spacing[3],
+  },
   cardWrapper: {
     width: cardWidth,
     marginBottom: spacing[4],
@@ -258,6 +360,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     ...shadows.sm,
+  },
+  styleImage: {
+    width: '100%',
+    aspectRatio: 1,
   },
   imagePlaceholder: {
     backgroundColor: colors.neutral[100],
@@ -304,5 +410,17 @@ const styles = StyleSheet.create({
   emptyText: {
     ...textStyles.body,
     color: colors.neutral[500],
+    textAlign: 'center',
+  },
+  clearSearchButton: {
+    marginTop: spacing[4],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    backgroundColor: colors.primary[50],
+    borderRadius: borderRadius.lg,
+  },
+  clearSearchText: {
+    ...textStyles.label,
+    color: colors.primary[600],
   },
 });

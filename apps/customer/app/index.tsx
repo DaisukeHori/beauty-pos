@@ -1,21 +1,120 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Card, Button, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { Card, Button, Badge, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { proposalService, visitService, reservationService, VisitWithDetails, ReservationWithDetails } from '@beauty-pos/api';
+import { formatTime } from '@beauty-pos/core';
+
+// Default IDs for demo (should come from session/config in real app)
+const DEFAULT_COMPANY_ID = 'demo-company';
+const DEFAULT_STORE_ID = 'demo-store';
+const DEFAULT_CUSTOMER_ID = 'demo-customer';
+
+interface SessionInfo {
+  visit?: VisitWithDetails | null;
+  reservation?: ReservationWithDetails | null;
+}
 
 export default function CustomerHomeScreen() {
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo>({});
+  const [pendingProposalCount, setPendingProposalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      // Load pending proposals count
+      const proposalCount = await proposalService.countPending(DEFAULT_CUSTOMER_ID);
+      setPendingProposalCount(proposalCount);
+
+      // Try to load current session info (visit or reservation)
+      // In real app, this would be based on the current context
+      // For demo, we'll just show mock info or empty state
+      setSessionInfo({
+        visit: null,
+        reservation: null,
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
+  };
+
+  const getMenuDisplay = () => {
+    if (sessionInfo.visit?.reservation) {
+      // From visit's reservation
+      const menuNames = sessionInfo.visit.reservation.menus?.map(m => m.name) || [];
+      return menuNames.length > 0 ? menuNames.join(' + ') : 'メニュー情報なし';
+    }
+    if (sessionInfo.reservation) {
+      // From reservation
+      const menuNames = sessionInfo.reservation.menus?.map(m => m.name) || [];
+      return menuNames.length > 0 ? menuNames.join(' + ') : 'メニュー情報なし';
+    }
+    return 'カット + カラー'; // Demo default
+  };
+
+  const getStaffDisplay = () => {
+    if (sessionInfo.visit?.staff) {
+      return `${sessionInfo.visit.staff.last_name} ${sessionInfo.visit.staff.first_name}`;
+    }
+    if (sessionInfo.reservation?.staff) {
+      return `${sessionInfo.reservation.staff.last_name} ${sessionInfo.reservation.staff.first_name}`;
+    }
+    return '田中 美咲'; // Demo default
+  };
+
+  const getDurationDisplay = () => {
+    if (sessionInfo.reservation?.menus) {
+      const totalMinutes = sessionInfo.reservation.menus.reduce(
+        (sum, m) => sum + (m.duration_minutes || 0), 0
+      );
+      return formatTime(totalMinutes);
+    }
+    return '約90分'; // Demo default
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={handleRefresh}
+          colors={[colors.primary[500]]}
+          tintColor={colors.primary[500]}
+        />
+      }
     >
       {/* Header */}
       <View style={styles.header}>
@@ -67,27 +166,52 @@ export default function CustomerHomeScreen() {
       </View>
 
       {/* Proposals Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>スタイリストからの提案</Text>
-        <TouchableOpacity
-          onPress={() => router.push('/proposal')}
-          activeOpacity={0.8}
-        >
-          <Card variant="outlined" size="md">
-            <View style={styles.proposalContent}>
-              <View style={styles.proposalInfo}>
-                <Text style={styles.proposalTitle}>新しい提案があります</Text>
-                <Text style={styles.proposalDescription}>
-                  あなたにおすすめのスタイルを見てみましょう
-                </Text>
+      {pendingProposalCount > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>スタイリストからの提案</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/proposal')}
+            activeOpacity={0.8}
+          >
+            <Card variant="outlined" size="md">
+              <View style={styles.proposalContent}>
+                <View style={styles.proposalInfo}>
+                  <Text style={styles.proposalTitle}>新しい提案があります</Text>
+                  <Text style={styles.proposalDescription}>
+                    あなたにおすすめのスタイルを見てみましょう
+                  </Text>
+                </View>
+                <View style={styles.proposalBadge}>
+                  <Text style={styles.proposalBadgeText}>{pendingProposalCount}</Text>
+                </View>
               </View>
-              <View style={styles.proposalBadge}>
-                <Text style={styles.proposalBadgeText}>1</Text>
+            </Card>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* No proposals - show placeholder */}
+      {pendingProposalCount === 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>スタイリストからの提案</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/proposal')}
+            activeOpacity={0.8}
+          >
+            <Card variant="outlined" size="md">
+              <View style={styles.proposalContent}>
+                <View style={styles.proposalInfo}>
+                  <Text style={styles.proposalTitle}>提案を確認する</Text>
+                  <Text style={styles.proposalDescription}>
+                    スタイリストからの提案があればここに表示されます
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
               </View>
-            </View>
-          </Card>
-        </TouchableOpacity>
-      </View>
+            </Card>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Info Section */}
       <View style={styles.section}>
@@ -95,15 +219,15 @@ export default function CustomerHomeScreen() {
         <Card variant="filled" size="md">
           <View style={styles.menuInfo}>
             <Text style={styles.menuLabel}>予約メニュー</Text>
-            <Text style={styles.menuValue}>カット + カラー</Text>
+            <Text style={styles.menuValue}>{getMenuDisplay()}</Text>
           </View>
           <View style={styles.menuInfo}>
             <Text style={styles.menuLabel}>担当</Text>
-            <Text style={styles.menuValue}>田中 美咲</Text>
+            <Text style={styles.menuValue}>{getStaffDisplay()}</Text>
           </View>
-          <View style={styles.menuInfo}>
+          <View style={[styles.menuInfo, styles.menuInfoLast]}>
             <Text style={styles.menuLabel}>予定時間</Text>
-            <Text style={styles.menuValue}>約90分</Text>
+            <Text style={styles.menuValue}>{getDurationDisplay()}</Text>
           </View>
         </Card>
       </View>
@@ -126,6 +250,17 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing[6],
     paddingBottom: spacing[10],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[3],
   },
   header: {
     alignItems: 'center',
@@ -239,12 +374,19 @@ const styles = StyleSheet.create({
     ...textStyles.labelSm,
     color: colors.white,
   },
+  chevron: {
+    fontSize: 24,
+    color: colors.neutral[400],
+  },
   menuInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: spacing[2],
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[200],
+  },
+  menuInfoLast: {
+    borderBottomWidth: 0,
   },
   menuLabel: {
     ...textStyles.bodySm,

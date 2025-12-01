@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,41 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Card, Button, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { hairStyleService, aiService, HairStyle } from '@beauty-pos/api';
+
+// Default company/customer ID for demo (should come from session in real app)
+const DEFAULT_COMPANY_ID = 'demo-company';
+const DEFAULT_CUSTOMER_ID = 'demo-customer';
 
 export default function SimulationScreen() {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState<HairStyle | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [hairStyles, setHairStyles] = useState<HairStyle[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(true);
 
-  const hairStyles = [
-    { id: '1', name: 'ショートボブ', image: null },
-    { id: '2', name: 'ミディアムレイヤー', image: null },
-    { id: '3', name: 'ロングウェーブ', image: null },
-    { id: '4', name: 'ツーブロック', image: null },
-    { id: '5', name: 'マッシュショート', image: null },
-    { id: '6', name: 'レイヤーカット', image: null },
-  ];
+  useEffect(() => {
+    loadHairStyles();
+  }, []);
+
+  const loadHairStyles = async () => {
+    try {
+      const styles = await hairStyleService.getAll(DEFAULT_COMPANY_ID, {
+        featured_only: true,
+        limit: 12,
+      });
+      setHairStyles(styles);
+    } catch (error) {
+      console.error('Error loading hair styles:', error);
+    } finally {
+      setIsLoadingStyles(false);
+    }
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImagePickerAsync({
@@ -67,12 +84,68 @@ export default function SimulationScreen() {
 
     setIsProcessing(true);
 
-    // Simulate AI processing
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      // Create a simulation record
+      const simulation = await aiService.createSimulation({
+        company_id: DEFAULT_COMPANY_ID,
+        customer_id: DEFAULT_CUSTOMER_ID,
+        customer_photo_url: sourceImage,
+        style_image_url: selectedStyle.image_url || '',
+        style_source: 'catalog',
+        status: 'processing',
+      });
 
-    // In real implementation, this would call the AI service
-    setGeneratedImage(sourceImage); // For now, just show the same image
-    setIsProcessing(false);
+      // In real implementation, this would call an AI Edge Function
+      // For now, simulate processing delay
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Update simulation status (in real app, AI would update this)
+      if (simulation) {
+        await aiService.updateSimulationStatus(simulation.id, 'completed');
+      }
+
+      // For demo, just show the source image
+      // In real implementation, this would be the AI-generated result
+      setGeneratedImage(sourceImage);
+
+      Alert.alert(
+        'シミュレーション完了',
+        'AIによるヘアスタイルシミュレーションが完了しました。\n※実際のAI連携は Phase 4 で実装されます。'
+      );
+    } catch (error) {
+      console.error('Error generating simulation:', error);
+      Alert.alert('エラー', 'シミュレーションの生成に失敗しました。');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveResult = async () => {
+    if (!generatedImage) return;
+
+    try {
+      Alert.alert('保存しました', 'シミュレーション結果を保存しました。');
+    } catch (error) {
+      Alert.alert('エラー', '保存に失敗しました。');
+    }
+  };
+
+  const handleSelectStyle = () => {
+    if (!generatedImage || !selectedStyle) return;
+
+    Alert.alert(
+      'スタイル決定',
+      `「${selectedStyle.name}」でよろしいですか？\nスタイリストに伝えます。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '決定',
+          onPress: () => {
+            Alert.alert('ありがとうございます', 'スタイリストにお伝えしました。');
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -108,23 +181,55 @@ export default function SimulationScreen() {
       {/* Style Selection */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>2. 試したいヘアスタイルを選択</Text>
-        <View style={styles.stylesGrid}>
-          {hairStyles.map((style) => (
-            <TouchableOpacity
-              key={style.id}
-              style={[
-                styles.styleCard,
-                selectedStyle === style.id && styles.styleCardSelected,
-              ]}
-              onPress={() => setSelectedStyle(style.id)}
-            >
-              <View style={styles.stylePlaceholder}>
-                <Text style={styles.stylePlaceholderIcon}>💇</Text>
-              </View>
-              <Text style={styles.styleName}>{style.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+
+        {isLoadingStyles ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary[500]} />
+            <Text style={styles.loadingText}>スタイルを読み込み中...</Text>
+          </View>
+        ) : (
+          <View style={styles.stylesGrid}>
+            {hairStyles.map((style) => (
+              <TouchableOpacity
+                key={style.id}
+                style={[
+                  styles.styleCard,
+                  selectedStyle?.id === style.id && styles.styleCardSelected,
+                ]}
+                onPress={() => setSelectedStyle(style)}
+              >
+                {style.image_url ? (
+                  <Image
+                    source={{ uri: style.image_url }}
+                    style={styles.styleImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.stylePlaceholder}>
+                    <Text style={styles.stylePlaceholderIcon}>💇</Text>
+                  </View>
+                )}
+                <Text style={styles.styleName} numberOfLines={1}>
+                  {style.name}
+                </Text>
+                {selectedStyle?.id === style.id && (
+                  <View style={styles.selectedIndicator}>
+                    <Text style={styles.selectedIndicatorText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {selectedStyle && (
+          <View style={styles.selectedStyleInfo}>
+            <Text style={styles.selectedStyleName}>{selectedStyle.name}</Text>
+            <Text style={styles.selectedStyleDescription}>
+              {selectedStyle.description || 'スタイルの詳細'}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Generate Button */}
@@ -138,6 +243,9 @@ export default function SimulationScreen() {
         >
           {isProcessing ? 'シミュレーション中...' : 'シミュレーションを生成'}
         </Button>
+        <Text style={styles.aiNote}>
+          ※ AIがあなたの顔写真にヘアスタイルを合成します
+        </Text>
       </View>
 
       {/* Result */}
@@ -156,14 +264,14 @@ export default function SimulationScreen() {
               <Button
                 variant="outline"
                 size="md"
-                onPress={() => {}}
+                onPress={handleSaveResult}
                 style={styles.resultButton}
               >
                 保存する
               </Button>
               <Button
                 size="md"
-                onPress={() => {}}
+                onPress={handleSelectStyle}
                 style={styles.resultButton}
               >
                 このスタイルで決定
@@ -190,6 +298,15 @@ const styles = StyleSheet.create({
     ...textStyles.h6,
     color: colors.neutral[900],
     marginBottom: spacing[3],
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing[8],
+  },
+  loadingText: {
+    ...textStyles.bodySm,
+    color: colors.neutral[500],
+    marginTop: spacing[2],
   },
   photoButtons: {
     flexDirection: 'row',
@@ -243,8 +360,16 @@ const styles = StyleSheet.create({
   styleCard: {
     width: '33.33%',
     padding: spacing[1],
+    position: 'relative',
   },
   styleCardSelected: {},
+  styleImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: borderRadius.lg,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
   stylePlaceholder: {
     backgroundColor: colors.neutral[100],
     borderRadius: borderRadius.lg,
@@ -262,6 +387,43 @@ const styles = StyleSheet.create({
     color: colors.neutral[700],
     textAlign: 'center',
     marginTop: spacing[1],
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: spacing[2],
+    right: spacing[2],
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedIndicatorText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectedStyleInfo: {
+    backgroundColor: colors.primary[50],
+    padding: spacing[3],
+    borderRadius: borderRadius.lg,
+    marginTop: spacing[3],
+  },
+  selectedStyleName: {
+    ...textStyles.label,
+    color: colors.primary[700],
+    marginBottom: spacing[1],
+  },
+  selectedStyleDescription: {
+    ...textStyles.bodySm,
+    color: colors.primary[600],
+  },
+  aiNote: {
+    ...textStyles.caption,
+    color: colors.neutral[500],
+    textAlign: 'center',
+    marginTop: spacing[2],
   },
   resultContainer: {
     alignItems: 'center',
