@@ -3,9 +3,7 @@ import { act } from '@testing-library/react';
 
 // Reset store before each test
 beforeEach(() => {
-  act(() => {
-    useUIStore.getState().reset();
-  });
+  useUIStore.getState().reset();
 });
 
 describe('useUIStore', () => {
@@ -15,9 +13,7 @@ describe('useUIStore', () => {
     });
 
     it('should set theme', () => {
-      act(() => {
-        useUIStore.getState().setTheme('dark');
-      });
+      useUIStore.getState().setTheme('dark');
       expect(useUIStore.getState().theme).toBe('dark');
     });
   });
@@ -28,9 +24,7 @@ describe('useUIStore', () => {
     });
 
     it('should set online status', () => {
-      act(() => {
-        useUIStore.getState().setOnline(false);
-      });
+      useUIStore.getState().setOnline(false);
       expect(useUIStore.getState().isOnline).toBe(false);
     });
   });
@@ -41,21 +35,15 @@ describe('useUIStore', () => {
     });
 
     it('should toggle sidebar', () => {
-      act(() => {
-        useUIStore.getState().toggleSidebar();
-      });
+      useUIStore.getState().toggleSidebar();
       expect(useUIStore.getState().isSidebarOpen).toBe(true);
 
-      act(() => {
-        useUIStore.getState().toggleSidebar();
-      });
+      useUIStore.getState().toggleSidebar();
       expect(useUIStore.getState().isSidebarOpen).toBe(false);
     });
 
     it('should set sidebar open state', () => {
-      act(() => {
-        useUIStore.getState().setSidebarOpen(true);
-      });
+      useUIStore.getState().setSidebarOpen(true);
       expect(useUIStore.getState().isSidebarOpen).toBe(true);
     });
   });
@@ -74,9 +62,7 @@ describe('useUIStore', () => {
     });
 
     it('should show toast', () => {
-      act(() => {
-        useUIStore.getState().showToast('Test message', 'success');
-      });
+      useUIStore.getState().showToast('Test message', 'success');
       const toasts = useUIStore.getState().toasts;
       expect(toasts).toHaveLength(1);
       expect(toasts[0].message).toBe('Test message');
@@ -84,9 +70,7 @@ describe('useUIStore', () => {
     });
 
     it('should auto-hide toast after duration', () => {
-      act(() => {
-        useUIStore.getState().showToast('Test message', 'info', 1000);
-      });
+      useUIStore.getState().showToast('Test message', 'info', 1000);
       expect(useUIStore.getState().toasts).toHaveLength(1);
 
       act(() => {
@@ -96,30 +80,22 @@ describe('useUIStore', () => {
     });
 
     it('should hide specific toast', () => {
-      act(() => {
-        useUIStore.getState().showToast('Toast 1', 'info', 0); // duration 0 = no auto-hide
-        useUIStore.getState().showToast('Toast 2', 'info', 0);
-      });
+      useUIStore.getState().showToast('Toast 1', 'info', 0); // duration 0 = no auto-hide
+      useUIStore.getState().showToast('Toast 2', 'info', 0);
       expect(useUIStore.getState().toasts).toHaveLength(2);
 
       const toastId = useUIStore.getState().toasts[0].id;
-      act(() => {
-        useUIStore.getState().hideToast(toastId);
-      });
+      useUIStore.getState().hideToast(toastId);
       expect(useUIStore.getState().toasts).toHaveLength(1);
       expect(useUIStore.getState().toasts[0].message).toBe('Toast 2');
     });
 
     it('should clear all toasts', () => {
-      act(() => {
-        useUIStore.getState().showToast('Toast 1', 'info', 0);
-        useUIStore.getState().showToast('Toast 2', 'info', 0);
-      });
+      useUIStore.getState().showToast('Toast 1', 'info', 0);
+      useUIStore.getState().showToast('Toast 2', 'info', 0);
       expect(useUIStore.getState().toasts).toHaveLength(2);
 
-      act(() => {
-        useUIStore.getState().clearToasts();
-      });
+      useUIStore.getState().clearToasts();
       expect(useUIStore.getState().toasts).toHaveLength(0);
     });
   });
@@ -130,9 +106,7 @@ describe('useUIStore', () => {
     });
 
     it('should open modal', () => {
-      act(() => {
-        useUIStore.getState().openModal('modal-1', 'ConfirmDialog', { title: 'Test' });
-      });
+      useUIStore.getState().openModal('modal-1', 'ConfirmDialog', { title: 'Test' });
       const modals = useUIStore.getState().modals;
       expect(modals).toHaveLength(1);
       expect(modals[0].id).toBe('modal-1');
@@ -141,28 +115,20 @@ describe('useUIStore', () => {
     });
 
     it('should close specific modal', () => {
-      act(() => {
-        useUIStore.getState().openModal('modal-1', 'Dialog1');
-        useUIStore.getState().openModal('modal-2', 'Dialog2');
-      });
+      useUIStore.getState().openModal('modal-1', 'Dialog1');
+      useUIStore.getState().openModal('modal-2', 'Dialog2');
       expect(useUIStore.getState().modals).toHaveLength(2);
 
-      act(() => {
-        useUIStore.getState().closeModal('modal-1');
-      });
+      useUIStore.getState().closeModal('modal-1');
       expect(useUIStore.getState().modals).toHaveLength(1);
       expect(useUIStore.getState().modals[0].id).toBe('modal-2');
     });
 
     it('should close all modals', () => {
-      act(() => {
-        useUIStore.getState().openModal('modal-1', 'Dialog1');
-        useUIStore.getState().openModal('modal-2', 'Dialog2');
-      });
+      useUIStore.getState().openModal('modal-1', 'Dialog1');
+      useUIStore.getState().openModal('modal-2', 'Dialog2');
 
-      act(() => {
-        useUIStore.getState().closeAllModals();
-      });
+      useUIStore.getState().closeAllModals();
       expect(useUIStore.getState().modals).toHaveLength(0);
     });
   });
@@ -174,9 +140,7 @@ describe('useUIStore', () => {
     });
 
     it('should set keyboard visibility', () => {
-      act(() => {
-        useUIStore.getState().setKeyboardVisible(true, 300);
-      });
+      useUIStore.getState().setKeyboardVisible(true, 300);
       expect(useUIStore.getState().isKeyboardVisible).toBe(true);
       expect(useUIStore.getState().keyboardHeight).toBe(300);
     });
@@ -184,17 +148,13 @@ describe('useUIStore', () => {
 
   describe('reset', () => {
     it('should reset all state to initial values', () => {
-      act(() => {
-        useUIStore.getState().setTheme('dark');
-        useUIStore.getState().setOnline(false);
-        useUIStore.getState().setSidebarOpen(true);
-        useUIStore.getState().showToast('Test', 'info', 0);
-        useUIStore.getState().openModal('modal-1', 'Dialog');
-      });
+      useUIStore.getState().setTheme('dark');
+      useUIStore.getState().setOnline(false);
+      useUIStore.getState().setSidebarOpen(true);
+      useUIStore.getState().showToast('Test', 'info', 0);
+      useUIStore.getState().openModal('modal-1', 'Dialog');
 
-      act(() => {
-        useUIStore.getState().reset();
-      });
+      useUIStore.getState().reset();
 
       const state = useUIStore.getState();
       expect(state.theme).toBe('system');

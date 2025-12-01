@@ -1,11 +1,8 @@
 import { useSaleStore } from '../saleStore';
-import { act } from '@testing-library/react';
 
 // Reset store before each test
 beforeEach(() => {
-  act(() => {
-    useSaleStore.getState().reset();
-  });
+  useSaleStore.getState().reset();
 });
 
 describe('useSaleStore', () => {
@@ -58,15 +55,11 @@ describe('useSaleStore', () => {
   describe('startSale', () => {
     it('should set sale context and clear cart', () => {
       // Add something to cart first
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
       expect(useSaleStore.getState().cart).toHaveLength(1);
 
       // Start new sale
-      act(() => {
-        useSaleStore.getState().startSale(mockContext);
-      });
+      useSaleStore.getState().startSale(mockContext);
 
       const state = useSaleStore.getState();
       expect(state.currentContext).toEqual(mockContext);
@@ -79,15 +72,11 @@ describe('useSaleStore', () => {
 
   describe('cancelSale', () => {
     it('should clear context and cart', () => {
-      act(() => {
-        useSaleStore.getState().startSale(mockContext);
-        useSaleStore.getState().addToCart(mockCartItem);
-        useSaleStore.getState().addPayment(mockPayment);
-      });
+      useSaleStore.getState().startSale(mockContext);
+      useSaleStore.getState().addToCart(mockCartItem);
+      useSaleStore.getState().addPayment(mockPayment);
 
-      act(() => {
-        useSaleStore.getState().cancelSale();
-      });
+      useSaleStore.getState().cancelSale();
 
       const state = useSaleStore.getState();
       expect(state.currentContext).toBeNull();
@@ -98,9 +87,7 @@ describe('useSaleStore', () => {
 
   describe('cart management', () => {
     it('should add item to cart', () => {
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
 
       const cart = useSaleStore.getState().cart;
       expect(cart).toHaveLength(1);
@@ -110,22 +97,16 @@ describe('useSaleStore', () => {
     it('should add multiple items to cart', () => {
       const item2 = { ...mockCartItem, id: 'item-2', name: 'カラー', unitPrice: 8000 };
 
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-        useSaleStore.getState().addToCart(item2);
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
+      useSaleStore.getState().addToCart(item2);
 
       expect(useSaleStore.getState().cart).toHaveLength(2);
     });
 
     it('should update cart item', () => {
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
 
-      act(() => {
-        useSaleStore.getState().updateCartItem('item-1', { quantity: 2 });
-      });
+      useSaleStore.getState().updateCartItem('item-1', { quantity: 2 });
 
       expect(useSaleStore.getState().cart[0].quantity).toBe(2);
     });
@@ -133,15 +114,11 @@ describe('useSaleStore', () => {
     it('should remove item from cart', () => {
       const item2 = { ...mockCartItem, id: 'item-2' };
 
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-        useSaleStore.getState().addToCart(item2);
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
+      useSaleStore.getState().addToCart(item2);
       expect(useSaleStore.getState().cart).toHaveLength(2);
 
-      act(() => {
-        useSaleStore.getState().removeFromCart('item-1');
-      });
+      useSaleStore.getState().removeFromCart('item-1');
 
       const cart = useSaleStore.getState().cart;
       expect(cart).toHaveLength(1);
@@ -149,14 +126,10 @@ describe('useSaleStore', () => {
     });
 
     it('should clear cart', () => {
-      act(() => {
-        useSaleStore.getState().addToCart(mockCartItem);
-        useSaleStore.getState().addToCart({ ...mockCartItem, id: 'item-2' });
-      });
+      useSaleStore.getState().addToCart(mockCartItem);
+      useSaleStore.getState().addToCart({ ...mockCartItem, id: 'item-2' });
 
-      act(() => {
-        useSaleStore.getState().clearCart();
-      });
+      useSaleStore.getState().clearCart();
 
       expect(useSaleStore.getState().cart).toHaveLength(0);
     });
@@ -164,9 +137,7 @@ describe('useSaleStore', () => {
 
   describe('payment management', () => {
     it('should add payment', () => {
-      act(() => {
-        useSaleStore.getState().addPayment(mockPayment);
-      });
+      useSaleStore.getState().addPayment(mockPayment);
 
       const payments = useSaleStore.getState().payments;
       expect(payments).toHaveLength(1);
@@ -176,14 +147,10 @@ describe('useSaleStore', () => {
     it('should remove payment by index', () => {
       const payment2 = { paymentMethod: 'credit_card' as const, amount: 3000 };
 
-      act(() => {
-        useSaleStore.getState().addPayment(mockPayment);
-        useSaleStore.getState().addPayment(payment2);
-      });
+      useSaleStore.getState().addPayment(mockPayment);
+      useSaleStore.getState().addPayment(payment2);
 
-      act(() => {
-        useSaleStore.getState().removePayment(0);
-      });
+      useSaleStore.getState().removePayment(0);
 
       const payments = useSaleStore.getState().payments;
       expect(payments).toHaveLength(1);
@@ -191,14 +158,10 @@ describe('useSaleStore', () => {
     });
 
     it('should clear all payments', () => {
-      act(() => {
-        useSaleStore.getState().addPayment(mockPayment);
-        useSaleStore.getState().addPayment({ paymentMethod: 'credit_card' as const, amount: 3000 });
-      });
+      useSaleStore.getState().addPayment(mockPayment);
+      useSaleStore.getState().addPayment({ paymentMethod: 'credit_card' as const, amount: 3000 });
 
-      act(() => {
-        useSaleStore.getState().clearPayments();
-      });
+      useSaleStore.getState().clearPayments();
 
       expect(useSaleStore.getState().payments).toHaveLength(0);
     });
@@ -212,9 +175,7 @@ describe('useSaleStore', () => {
     };
 
     it('should add global discount', () => {
-      act(() => {
-        useSaleStore.getState().addGlobalDiscount(mockDiscount);
-      });
+      useSaleStore.getState().addGlobalDiscount(mockDiscount);
 
       const discounts = useSaleStore.getState().globalDiscounts;
       expect(discounts).toHaveLength(1);
@@ -224,14 +185,10 @@ describe('useSaleStore', () => {
     it('should remove global discount by index', () => {
       const discount2 = { type: 'amount' as const, value: 500, reason: '特別割引' };
 
-      act(() => {
-        useSaleStore.getState().addGlobalDiscount(mockDiscount);
-        useSaleStore.getState().addGlobalDiscount(discount2);
-      });
+      useSaleStore.getState().addGlobalDiscount(mockDiscount);
+      useSaleStore.getState().addGlobalDiscount(discount2);
 
-      act(() => {
-        useSaleStore.getState().removeGlobalDiscount(0);
-      });
+      useSaleStore.getState().removeGlobalDiscount(0);
 
       const discounts = useSaleStore.getState().globalDiscounts;
       expect(discounts).toHaveLength(1);
@@ -241,9 +198,7 @@ describe('useSaleStore', () => {
 
   describe('points', () => {
     it('should set points used', () => {
-      act(() => {
-        useSaleStore.getState().setPointsUsed(500);
-      });
+      useSaleStore.getState().setPointsUsed(500);
 
       expect(useSaleStore.getState().pointsUsed).toBe(500);
     });
@@ -251,19 +206,17 @@ describe('useSaleStore', () => {
 
   describe('cart totals calculation', () => {
     it('should calculate totals for single item', () => {
-      act(() => {
-        useSaleStore.getState().addToCart({
-          id: 'item-1',
-          type: 'menu' as const,
-          itemId: 'menu-1',
-          name: 'カット',
-          unitPrice: 5000,
-          quantity: 1,
-          taxRate: 10,
-          staffAssignments: [],
-          processAssignments: [],
-          discounts: [],
-        });
+      useSaleStore.getState().addToCart({
+        id: 'item-1',
+        type: 'menu' as const,
+        itemId: 'menu-1',
+        name: 'カット',
+        unitPrice: 5000,
+        quantity: 1,
+        taxRate: 10,
+        staffAssignments: [],
+        processAssignments: [],
+        discounts: [],
       });
 
       const totals = useSaleStore.getState().getCartTotals();
@@ -273,19 +226,17 @@ describe('useSaleStore', () => {
     });
 
     it('should calculate totals with quantity', () => {
-      act(() => {
-        useSaleStore.getState().addToCart({
-          id: 'item-1',
-          type: 'menu' as const,
-          itemId: 'menu-1',
-          name: 'カット',
-          unitPrice: 5000,
-          quantity: 2,
-          taxRate: 10,
-          staffAssignments: [],
-          processAssignments: [],
-          discounts: [],
-        });
+      useSaleStore.getState().addToCart({
+        id: 'item-1',
+        type: 'menu' as const,
+        itemId: 'menu-1',
+        name: 'カット',
+        unitPrice: 5000,
+        quantity: 2,
+        taxRate: 10,
+        staffAssignments: [],
+        processAssignments: [],
+        discounts: [],
       });
 
       const totals = useSaleStore.getState().getCartTotals();
@@ -294,19 +245,17 @@ describe('useSaleStore', () => {
     });
 
     it('should calculate totals with item discount', () => {
-      act(() => {
-        useSaleStore.getState().addToCart({
-          id: 'item-1',
-          type: 'menu' as const,
-          itemId: 'menu-1',
-          name: 'カット',
-          unitPrice: 5000,
-          quantity: 1,
-          taxRate: 10,
-          staffAssignments: [],
-          processAssignments: [],
-          discounts: [{ type: 'amount' as const, value: 500, reason: '割引' }],
-        });
+      useSaleStore.getState().addToCart({
+        id: 'item-1',
+        type: 'menu' as const,
+        itemId: 'menu-1',
+        name: 'カット',
+        unitPrice: 5000,
+        quantity: 1,
+        taxRate: 10,
+        staffAssignments: [],
+        processAssignments: [],
+        discounts: [{ type: 'amount' as const, value: 500, reason: '割引' }],
       });
 
       const totals = useSaleStore.getState().getCartTotals();
@@ -317,40 +266,36 @@ describe('useSaleStore', () => {
     });
 
     it('should calculate totals with points used', () => {
-      act(() => {
-        useSaleStore.getState().addToCart({
-          id: 'item-1',
-          type: 'menu' as const,
-          itemId: 'menu-1',
-          name: 'カット',
-          unitPrice: 5000,
-          quantity: 1,
-          taxRate: 10,
-          staffAssignments: [],
-          processAssignments: [],
-          discounts: [],
-        });
-        useSaleStore.getState().setPointsUsed(500);
+      useSaleStore.getState().addToCart({
+        id: 'item-1',
+        type: 'menu' as const,
+        itemId: 'menu-1',
+        name: 'カット',
+        unitPrice: 5000,
+        quantity: 1,
+        taxRate: 10,
+        staffAssignments: [],
+        processAssignments: [],
+        discounts: [],
       });
+      useSaleStore.getState().setPointsUsed(500);
 
       const totals = useSaleStore.getState().getCartTotals();
       expect(totals.total).toBe(5000); // 5500 - 500 points
     });
 
     it('should calculate points earned', () => {
-      act(() => {
-        useSaleStore.getState().addToCart({
-          id: 'item-1',
-          type: 'menu' as const,
-          itemId: 'menu-1',
-          name: 'カット',
-          unitPrice: 10000,
-          quantity: 1,
-          taxRate: 10,
-          staffAssignments: [],
-          processAssignments: [],
-          discounts: [],
-        });
+      useSaleStore.getState().addToCart({
+        id: 'item-1',
+        type: 'menu' as const,
+        itemId: 'menu-1',
+        name: 'カット',
+        unitPrice: 10000,
+        quantity: 1,
+        taxRate: 10,
+        staffAssignments: [],
+        processAssignments: [],
+        discounts: [],
       });
 
       const totals = useSaleStore.getState().getCartTotals(0.01); // 1% point rate
@@ -381,9 +326,7 @@ describe('useSaleStore', () => {
     };
 
     it('should set sales', () => {
-      act(() => {
-        useSaleStore.getState().setSales([mockSale]);
-      });
+      useSaleStore.getState().setSales([mockSale]);
 
       expect(useSaleStore.getState().sales).toHaveLength(1);
     });
@@ -391,10 +334,8 @@ describe('useSaleStore', () => {
     it('should add sale to beginning of list', () => {
       const sale2 = { ...mockSale, id: 'sale-2', receiptNumber: 'S-002' };
 
-      act(() => {
-        useSaleStore.getState().setSales([mockSale]);
-        useSaleStore.getState().addSale(sale2);
-      });
+      useSaleStore.getState().setSales([mockSale]);
+      useSaleStore.getState().addSale(sale2);
 
       const sales = useSaleStore.getState().sales;
       expect(sales).toHaveLength(2);
@@ -402,9 +343,7 @@ describe('useSaleStore', () => {
     });
 
     it('should set selected sale', () => {
-      act(() => {
-        useSaleStore.getState().setSelectedSale(mockSale);
-      });
+      useSaleStore.getState().setSelectedSale(mockSale);
 
       expect(useSaleStore.getState().selectedSale).toEqual(mockSale);
     });
@@ -412,24 +351,18 @@ describe('useSaleStore', () => {
 
   describe('state management', () => {
     it('should set processing state', () => {
-      act(() => {
-        useSaleStore.getState().setProcessing(true);
-      });
+      useSaleStore.getState().setProcessing(true);
       expect(useSaleStore.getState().isProcessing).toBe(true);
     });
 
     it('should set loading state', () => {
-      act(() => {
-        useSaleStore.getState().setLoading(true);
-      });
+      useSaleStore.getState().setLoading(true);
       expect(useSaleStore.getState().isLoading).toBe(true);
     });
 
     it('should set error and stop processing', () => {
-      act(() => {
-        useSaleStore.getState().setProcessing(true);
-        useSaleStore.getState().setError('会計エラー');
-      });
+      useSaleStore.getState().setProcessing(true);
+      useSaleStore.getState().setError('会計エラー');
 
       const state = useSaleStore.getState();
       expect(state.error).toBe('会計エラー');
@@ -439,16 +372,12 @@ describe('useSaleStore', () => {
 
   describe('reset', () => {
     it('should reset all state', () => {
-      act(() => {
-        useSaleStore.getState().startSale(mockContext);
-        useSaleStore.getState().addToCart(mockCartItem);
-        useSaleStore.getState().addPayment(mockPayment);
-        useSaleStore.getState().setError('Error');
-      });
+      useSaleStore.getState().startSale(mockContext);
+      useSaleStore.getState().addToCart(mockCartItem);
+      useSaleStore.getState().addPayment(mockPayment);
+      useSaleStore.getState().setError('Error');
 
-      act(() => {
-        useSaleStore.getState().reset();
-      });
+      useSaleStore.getState().reset();
 
       const state = useSaleStore.getState();
       expect(state.currentContext).toBeNull();

@@ -1,12 +1,9 @@
 import { useAuthStore } from '../authStore';
-import { act } from '@testing-library/react';
 import type { Staff, Company } from '../../models';
 
 // Reset store before each test
 beforeEach(() => {
-  act(() => {
-    useAuthStore.getState().reset();
-  });
+  useAuthStore.getState().reset();
 });
 
 describe('useAuthStore', () => {
@@ -32,9 +29,7 @@ describe('useAuthStore', () => {
     it('should set user and authenticate', () => {
       const mockUser = { id: 'user-1', email: 'test@example.com' };
 
-      act(() => {
-        useAuthStore.getState().setUser(mockUser);
-      });
+      useAuthStore.getState().setUser(mockUser);
 
       const state = useAuthStore.getState();
       expect(state.user).toEqual(mockUser);
@@ -44,15 +39,11 @@ describe('useAuthStore', () => {
 
     it('should set null user and unauthenticate', () => {
       // First set a user
-      act(() => {
-        useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
-      });
+      useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
       expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
       // Then set null
-      act(() => {
-        useAuthStore.getState().setUser(null);
-      });
+      useAuthStore.getState().setUser(null);
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
@@ -79,9 +70,7 @@ describe('useAuthStore', () => {
         updatedAt: new Date().toISOString(),
       };
 
-      act(() => {
-        useAuthStore.getState().setStaff(mockStaff);
-      });
+      useAuthStore.getState().setStaff(mockStaff);
 
       expect(useAuthStore.getState().staff).toEqual(mockStaff);
     });
@@ -100,9 +89,7 @@ describe('useAuthStore', () => {
         updatedAt: new Date().toISOString(),
       };
 
-      act(() => {
-        useAuthStore.getState().setCompany(mockCompany);
-      });
+      useAuthStore.getState().setCompany(mockCompany);
 
       expect(useAuthStore.getState().company).toEqual(mockCompany);
     });
@@ -110,23 +97,17 @@ describe('useAuthStore', () => {
 
   describe('setLoading', () => {
     it('should set loading state', () => {
-      act(() => {
-        useAuthStore.getState().setLoading(false);
-      });
+      useAuthStore.getState().setLoading(false);
       expect(useAuthStore.getState().isLoading).toBe(false);
 
-      act(() => {
-        useAuthStore.getState().setLoading(true);
-      });
+      useAuthStore.getState().setLoading(true);
       expect(useAuthStore.getState().isLoading).toBe(true);
     });
   });
 
   describe('setError', () => {
     it('should set error and stop loading', () => {
-      act(() => {
-        useAuthStore.getState().setError('認証エラー');
-      });
+      useAuthStore.getState().setError('認証エラー');
 
       const state = useAuthStore.getState();
       expect(state.error).toBe('認証エラー');
@@ -134,14 +115,10 @@ describe('useAuthStore', () => {
     });
 
     it('should clear error', () => {
-      act(() => {
-        useAuthStore.getState().setError('エラー');
-      });
+      useAuthStore.getState().setError('エラー');
       expect(useAuthStore.getState().error).toBe('エラー');
 
-      act(() => {
-        useAuthStore.getState().setError(null);
-      });
+      useAuthStore.getState().setError(null);
       expect(useAuthStore.getState().error).toBeNull();
     });
   });
@@ -174,16 +151,12 @@ describe('useAuthStore', () => {
       };
 
       // Set up authenticated state
-      act(() => {
-        useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
-        useAuthStore.getState().setStaff(mockStaff);
-        useAuthStore.getState().setCompany(mockCompany);
-      });
+      useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
+      useAuthStore.getState().setStaff(mockStaff);
+      useAuthStore.getState().setCompany(mockCompany);
 
       // Logout
-      act(() => {
-        useAuthStore.getState().logout();
-      });
+      useAuthStore.getState().logout();
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
@@ -197,15 +170,11 @@ describe('useAuthStore', () => {
   describe('reset', () => {
     it('should reset to initial state', () => {
       // Set up some state
-      act(() => {
-        useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
-        useAuthStore.getState().setError('Some error');
-      });
+      useAuthStore.getState().setUser({ id: 'user-1', email: 'test@example.com' });
+      useAuthStore.getState().setError('Some error');
 
       // Reset
-      act(() => {
-        useAuthStore.getState().reset();
-      });
+      useAuthStore.getState().reset();
 
       const state = useAuthStore.getState();
       expect(state.user).toBeNull();
