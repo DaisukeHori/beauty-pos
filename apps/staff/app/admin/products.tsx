@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,15 @@ import {
   Alert,
   FlatList,
   Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Card, Button, Badge, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { Card, Button, Badge, colors, spacing, textStyles, borderRadius } from '@beauty-pos/ui';
+import { useAuthStore, useUIStore } from '@beauty-pos/core';
+import { productService, type Product, type ProductInsert, type ProductUpdate } from '@beauty-pos/api';
 
-interface Product {
+interface ProductDisplay {
   id: string;
   name: string;
   category: string;
@@ -37,7 +41,7 @@ interface ProductCategory {
   name: string;
 }
 
-const mockCategories: ProductCategory[] = [
+const defaultCategories: ProductCategory[] = [
   { id: '1', name: 'シャンプー' },
   { id: '2', name: 'トリートメント' },
   { id: '3', name: 'スタイリング剤' },
@@ -46,58 +50,7 @@ const mockCategories: ProductCategory[] = [
   { id: '6', name: 'その他' },
 ];
 
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'オーガニックシャンプー',
-    category: 'シャンプー',
-    brand: 'Nature Care',
-    description: '天然由来成分配合の優しいシャンプー',
-    price: 2800,
-    cost: 1400,
-    stock: 15,
-    minStock: 5,
-    barcode: '4901234567890',
-    imageUrl: '',
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 1,
-  },
-  {
-    id: '2',
-    name: 'ダメージリペアトリートメント',
-    category: 'トリートメント',
-    brand: 'Hair Lab',
-    description: 'ダメージヘアを集中補修',
-    price: 3500,
-    cost: 1750,
-    stock: 8,
-    minStock: 5,
-    barcode: '4901234567891',
-    imageUrl: '',
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 2,
-  },
-  {
-    id: '3',
-    name: 'ヘアワックス ナチュラル',
-    category: 'スタイリング剤',
-    brand: 'Style Pro',
-    description: 'ナチュラルな仕上がりのヘアワックス',
-    price: 1800,
-    cost: 900,
-    stock: 3,
-    minStock: 5,
-    barcode: '4901234567892',
-    imageUrl: '',
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 3,
-  },
-];
-
-const emptyProduct: Omit<Product, 'id'> = {
+const emptyProduct: Omit<ProductDisplay, 'id'> = {
   name: '',
   category: '',
   brand: '',
@@ -114,14 +67,58 @@ const emptyProduct: Omit<Product, 'id'> = {
 };
 
 export default function ProductManagementScreen() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
-  const [categories] = useState<ProductCategory[]>(mockCategories);
+  const { company, store } = useAuthStore();
+  const { showToast } = useUIStore();
+
+  const [products, setProducts] = useState<ProductDisplay[]>([]);
+  const [categories] = useState<ProductCategory[]>(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState<string>('すべて');
   const [searchQuery, setSearchQuery] = useState('');
   const [showLowStock, setShowLowStock] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState<Product | null>(null);
-  const [formData, setFormData] = useState<Omit<Product, 'id'>>(emptyProduct);
+  const [editingItem, setEditingItem] = useState<ProductDisplay | null>(null);
+  const [formData, setFormData] = useState<Omit<ProductDisplay, 'id'>>(emptyProduct);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load products
+  const loadProducts = useCallback(async () => {
+    if (!company?.id || !store?.id) return;
+
+    try {
+      const data = await productService.getAll(company.id, store.id);
+      setProducts(data.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category || '',
+        brand: p.brand || '',
+        description: p.description || '',
+        price: p.selling_price,
+        cost: p.cost_price || 0,
+        stock: p.stock_quantity || 0,
+        minStock: p.min_stock_quantity || 5,
+        barcode: p.barcode || '',
+        imageUrl: p.image_url || '',
+        isActive: p.is_active,
+        taxRate: (p.tax_rate === 8 ? 8 : 10) as 10 | 8,
+        sortOrder: p.sort_order || 0,
+      })));
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      showToast('商品の取得に失敗しました', 'error');
+    }
+  }, [company?.id, store?.id, showToast]);
+
+  // Initial load
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      await loadProducts();
+      setIsLoading(false);
+    };
+    init();
+  }, [loadProducts]);
 
   const filteredProducts = products.filter((item) => {
     const matchesSearch =
@@ -136,13 +133,19 @@ export default function ProductManagementScreen() {
 
   const lowStockCount = products.filter((p) => p.stock <= p.minStock).length;
 
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadProducts();
+    setIsRefreshing(false);
+  }, [loadProducts]);
+
   const handleAdd = () => {
     setEditingItem(null);
     setFormData({ ...emptyProduct, sortOrder: products.length + 1 });
     setIsModalVisible(true);
   };
 
-  const handleEdit = (item: Product) => {
+  const handleEdit = (item: ProductDisplay) => {
     setEditingItem(item);
     setFormData({
       name: item.name,
@@ -162,7 +165,7 @@ export default function ProductManagementScreen() {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (item: Product) => {
+  const handleDelete = (item: ProductDisplay) => {
     Alert.alert(
       '商品削除',
       `「${item.name}」を削除しますか？`,
@@ -171,15 +174,24 @@ export default function ProductManagementScreen() {
         {
           text: '削除',
           style: 'destructive',
-          onPress: () => {
-            setProducts((prev) => prev.filter((i) => i.id !== item.id));
+          onPress: async () => {
+            try {
+              await productService.delete(item.id);
+              setProducts((prev) => prev.filter((i) => i.id !== item.id));
+              showToast('商品を削除しました', 'success');
+            } catch (error) {
+              console.error('Failed to delete product:', error);
+              showToast('削除に失敗しました', 'error');
+            }
           },
         },
       ]
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!company?.id || !store?.id) return;
+
     if (!formData.name.trim()) {
       Alert.alert('エラー', '商品名を入力してください');
       return;
@@ -193,31 +205,77 @@ export default function ProductManagementScreen() {
       return;
     }
 
-    if (editingItem) {
-      setProducts((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id ? { ...formData, id: item.id } : item
-        )
-      );
-    } else {
-      const newItem: Product = {
-        ...formData,
-        id: Date.now().toString(),
-      };
-      setProducts((prev) => [...prev, newItem]);
+    setIsSaving(true);
+
+    try {
+      if (editingItem) {
+        // Update
+        const updateData: ProductUpdate = {
+          name: formData.name,
+          category: formData.category,
+          brand: formData.brand || null,
+          description: formData.description || null,
+          selling_price: formData.price,
+          cost_price: formData.cost || null,
+          stock_quantity: formData.stock,
+          min_stock_quantity: formData.minStock,
+          barcode: formData.barcode || null,
+          image_url: formData.imageUrl || null,
+          is_active: formData.isActive,
+          tax_rate: formData.taxRate,
+          sort_order: formData.sortOrder,
+        };
+
+        await productService.update(editingItem.id, updateData);
+        showToast('商品を更新しました', 'success');
+      } else {
+        // Create
+        const insertData: ProductInsert = {
+          company_id: company.id,
+          store_id: store.id,
+          name: formData.name,
+          category: formData.category,
+          brand: formData.brand || null,
+          description: formData.description || null,
+          selling_price: formData.price,
+          cost_price: formData.cost || null,
+          stock_quantity: formData.stock,
+          min_stock_quantity: formData.minStock,
+          barcode: formData.barcode || null,
+          image_url: formData.imageUrl || null,
+          is_active: formData.isActive,
+          tax_rate: formData.taxRate,
+          sort_order: formData.sortOrder,
+        };
+
+        await productService.create(insertData);
+        showToast('商品を追加しました', 'success');
+      }
+
+      setIsModalVisible(false);
+      loadProducts();
+    } catch (error) {
+      console.error('Failed to save product:', error);
+      showToast('保存に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsModalVisible(false);
   };
 
-  const handleStockAdjust = (item: Product, delta: number) => {
+  const handleStockAdjust = async (item: ProductDisplay, delta: number) => {
     const newStock = Math.max(0, item.stock + delta);
-    setProducts((prev) =>
-      prev.map((p) => (p.id === item.id ? { ...p, stock: newStock } : p))
-    );
+    try {
+      await productService.adjustStock(item.id, delta, delta > 0 ? 'purchase' : 'sale');
+      setProducts((prev) =>
+        prev.map((p) => (p.id === item.id ? { ...p, stock: newStock } : p))
+      );
+    } catch (error) {
+      console.error('Failed to adjust stock:', error);
+      showToast('在庫調整に失敗しました', 'error');
+    }
   };
 
-  const renderProductItem = ({ item }: { item: Product }) => {
+  const renderProductItem = ({ item }: { item: ProductDisplay }) => {
     const isLowStock = item.stock <= item.minStock;
     const margin = item.price - item.cost;
     const marginRate = item.cost > 0 ? ((margin / item.cost) * 100).toFixed(0) : 0;
@@ -254,7 +312,7 @@ export default function ProductManagementScreen() {
                   </Badge>
                 )}
               </View>
-              <Text style={styles.productBrand}>{item.brand}</Text>
+              <Text style={styles.productBrand}>{item.brand || 'ブランドなし'}</Text>
               <Badge colorScheme="primary" variant="subtle" size="sm">
                 {item.category}
               </Badge>
@@ -336,6 +394,15 @@ export default function ProductManagementScreen() {
       </Card>
     );
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -432,10 +499,16 @@ export default function ProductManagementScreen() {
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📦</Text>
             <Text style={styles.emptyText}>商品がありません</Text>
+            <Button size="sm" variant="outline" onPress={handleAdd} style={styles.emptyButton}>
+              商品を追加
+            </Button>
           </View>
         }
       />
@@ -455,8 +528,12 @@ export default function ProductManagementScreen() {
             <Text style={styles.modalTitle}>
               {editingItem ? '商品編集' : '商品追加'}
             </Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.modalSave}>保存</Text>
+            <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              ) : (
+                <Text style={styles.modalSave}>保存</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -683,6 +760,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[4],
   },
   header: {
     flexDirection: 'row',
@@ -928,6 +1016,9 @@ const styles = StyleSheet.create({
   emptyText: {
     ...textStyles.body,
     color: colors.neutral[500],
+  },
+  emptyButton: {
+    marginTop: spacing[4],
   },
   modalContainer: {
     flex: 1,

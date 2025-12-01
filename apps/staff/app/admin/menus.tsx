@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,13 @@ import {
   Switch,
   Alert,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Card, Button, Badge, colors, spacing, textStyles, borderRadius, shadows } from '@beauty-pos/ui';
+import { Card, Button, Badge, colors, spacing, textStyles, borderRadius } from '@beauty-pos/ui';
+import { useAuthStore, useUIStore } from '@beauty-pos/core';
+import { menuService, type Menu, type MenuInsert, type MenuUpdate } from '@beauty-pos/api';
 
 interface MenuItem {
   id: string;
@@ -35,72 +39,13 @@ interface MenuCategory {
   sortOrder: number;
 }
 
-const mockCategories: MenuCategory[] = [
+const defaultCategories: MenuCategory[] = [
   { id: '1', name: 'カット', sortOrder: 1 },
   { id: '2', name: 'カラー', sortOrder: 2 },
   { id: '3', name: 'パーマ', sortOrder: 3 },
   { id: '4', name: 'トリートメント', sortOrder: 4 },
   { id: '5', name: 'ヘッドスパ', sortOrder: 5 },
   { id: '6', name: 'セット', sortOrder: 6 },
-];
-
-const mockMenuItems: MenuItem[] = [
-  {
-    id: '1',
-    name: 'カット',
-    category: 'カット',
-    description: 'シャンプー・ブロー込み',
-    basePrice: 5500,
-    shortPrice: 0,
-    mediumPrice: 0,
-    longPrice: 0,
-    duration: 60,
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 1,
-  },
-  {
-    id: '2',
-    name: 'カラー',
-    category: 'カラー',
-    description: 'リタッチ・フルカラー選択可',
-    basePrice: 7000,
-    shortPrice: 0,
-    mediumPrice: 500,
-    longPrice: 1000,
-    duration: 90,
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 2,
-  },
-  {
-    id: '3',
-    name: 'パーマ',
-    category: 'パーマ',
-    description: 'コールドパーマ',
-    basePrice: 8000,
-    shortPrice: 0,
-    mediumPrice: 1000,
-    longPrice: 2000,
-    duration: 120,
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 3,
-  },
-  {
-    id: '4',
-    name: 'トリートメント',
-    category: 'トリートメント',
-    description: 'システムトリートメント',
-    basePrice: 3000,
-    shortPrice: 0,
-    mediumPrice: 500,
-    longPrice: 1000,
-    duration: 30,
-    isActive: true,
-    taxRate: 10,
-    sortOrder: 4,
-  },
 ];
 
 const emptyMenuItem: Omit<MenuItem, 'id'> = {
@@ -118,13 +63,55 @@ const emptyMenuItem: Omit<MenuItem, 'id'> = {
 };
 
 export default function MenuManagementScreen() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(mockMenuItems);
-  const [categories] = useState<MenuCategory[]>(mockCategories);
+  const { company, store } = useAuthStore();
+  const { showToast } = useUIStore();
+
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories] = useState<MenuCategory[]>(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState<string>('すべて');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [formData, setFormData] = useState<Omit<MenuItem, 'id'>>(emptyMenuItem);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load menus
+  const loadMenus = useCallback(async () => {
+    if (!company?.id || !store?.id) return;
+
+    try {
+      const data = await menuService.getAll(company.id, store.id);
+      setMenuItems(data.map(m => ({
+        id: m.id,
+        name: m.name,
+        category: m.category || '',
+        description: m.description || '',
+        basePrice: m.price,
+        shortPrice: m.price_short ? m.price_short - m.price : 0,
+        mediumPrice: m.price_medium ? m.price_medium - m.price : 0,
+        longPrice: m.price_long ? m.price_long - m.price : 0,
+        duration: m.duration || 60,
+        isActive: m.is_active,
+        taxRate: (m.tax_rate === 8 ? 8 : 10) as 10 | 8,
+        sortOrder: m.sort_order || 0,
+      })));
+    } catch (error) {
+      console.error('Failed to load menus:', error);
+      showToast('メニューの取得に失敗しました', 'error');
+    }
+  }, [company?.id, store?.id, showToast]);
+
+  // Initial load
+  useEffect(() => {
+    const init = async () => {
+      setIsLoading(true);
+      await loadMenus();
+      setIsLoading(false);
+    };
+    init();
+  }, [loadMenus]);
 
   const filteredItems = menuItems.filter((item) => {
     const matchesSearch =
@@ -134,6 +121,12 @@ export default function MenuManagementScreen() {
       selectedCategory === 'すべて' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadMenus();
+    setIsRefreshing(false);
+  }, [loadMenus]);
 
   const handleAdd = () => {
     setEditingItem(null);
@@ -168,15 +161,24 @@ export default function MenuManagementScreen() {
         {
           text: '削除',
           style: 'destructive',
-          onPress: () => {
-            setMenuItems((prev) => prev.filter((i) => i.id !== item.id));
+          onPress: async () => {
+            try {
+              await menuService.delete(item.id);
+              setMenuItems((prev) => prev.filter((i) => i.id !== item.id));
+              showToast('メニューを削除しました', 'success');
+            } catch (error) {
+              console.error('Failed to delete menu:', error);
+              showToast('削除に失敗しました', 'error');
+            }
           },
         },
       ]
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!company?.id || !store?.id) return;
+
     if (!formData.name.trim()) {
       Alert.alert('エラー', 'メニュー名を入力してください');
       return;
@@ -190,31 +192,72 @@ export default function MenuManagementScreen() {
       return;
     }
 
-    if (editingItem) {
-      // Update
-      setMenuItems((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id ? { ...formData, id: item.id } : item
-        )
-      );
-    } else {
-      // Create
-      const newItem: MenuItem = {
-        ...formData,
-        id: Date.now().toString(),
-      };
-      setMenuItems((prev) => [...prev, newItem]);
-    }
+    setIsSaving(true);
 
-    setIsModalVisible(false);
+    try {
+      if (editingItem) {
+        // Update
+        const updateData: MenuUpdate = {
+          name: formData.name,
+          category: formData.category,
+          description: formData.description || null,
+          price: formData.basePrice,
+          price_short: formData.shortPrice > 0 ? formData.basePrice + formData.shortPrice : null,
+          price_medium: formData.mediumPrice > 0 ? formData.basePrice + formData.mediumPrice : null,
+          price_long: formData.longPrice > 0 ? formData.basePrice + formData.longPrice : null,
+          duration: formData.duration,
+          is_active: formData.isActive,
+          tax_rate: formData.taxRate,
+          sort_order: formData.sortOrder,
+        };
+
+        await menuService.update(editingItem.id, updateData);
+        showToast('メニューを更新しました', 'success');
+      } else {
+        // Create
+        const insertData: MenuInsert = {
+          company_id: company.id,
+          store_id: store.id,
+          name: formData.name,
+          category: formData.category,
+          description: formData.description || null,
+          price: formData.basePrice,
+          price_short: formData.shortPrice > 0 ? formData.basePrice + formData.shortPrice : null,
+          price_medium: formData.mediumPrice > 0 ? formData.basePrice + formData.mediumPrice : null,
+          price_long: formData.longPrice > 0 ? formData.basePrice + formData.longPrice : null,
+          duration: formData.duration,
+          is_active: formData.isActive,
+          tax_rate: formData.taxRate,
+          sort_order: formData.sortOrder,
+        };
+
+        await menuService.create(insertData);
+        showToast('メニューを追加しました', 'success');
+      }
+
+      setIsModalVisible(false);
+      loadMenus();
+    } catch (error) {
+      console.error('Failed to save menu:', error);
+      showToast('保存に失敗しました', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const toggleActive = (item: MenuItem) => {
-    setMenuItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id ? { ...i, isActive: !i.isActive } : i
-      )
-    );
+  const toggleActive = async (item: MenuItem) => {
+    try {
+      await menuService.update(item.id, { is_active: !item.isActive });
+      setMenuItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, isActive: !i.isActive } : i
+        )
+      );
+      showToast(item.isActive ? 'メニューを非公開にしました' : 'メニューを公開しました', 'success');
+    } catch (error) {
+      console.error('Failed to toggle menu:', error);
+      showToast('更新に失敗しました', 'error');
+    }
   };
 
   const renderMenuItem = ({ item }: { item: MenuItem }) => (
@@ -300,6 +343,15 @@ export default function MenuManagementScreen() {
     </Card>
   );
 
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>読み込み中...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -377,10 +429,16 @@ export default function MenuManagementScreen() {
         renderItem={renderMenuItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyText}>メニューがありません</Text>
+            <Button size="sm" variant="outline" onPress={handleAdd} style={styles.emptyButton}>
+              メニューを追加
+            </Button>
           </View>
         }
       />
@@ -400,8 +458,12 @@ export default function MenuManagementScreen() {
             <Text style={styles.modalTitle}>
               {editingItem ? 'メニュー編集' : 'メニュー追加'}
             </Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.modalSave}>保存</Text>
+            <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              ) : (
+                <Text style={styles.modalSave}>保存</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -628,6 +690,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.neutral[50],
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.neutral[50],
+  },
+  loadingText: {
+    ...textStyles.body,
+    color: colors.neutral[500],
+    marginTop: spacing[4],
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -797,6 +870,9 @@ const styles = StyleSheet.create({
   emptyText: {
     ...textStyles.body,
     color: colors.neutral[500],
+  },
+  emptyButton: {
+    marginTop: spacing[4],
   },
   modalContainer: {
     flex: 1,
