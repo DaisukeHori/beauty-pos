@@ -6,13 +6,13 @@
 |---------|------|--------|
 | DBスキーマ | 20 | 0 |
 | APIサービス | 26 | 0 |
-| Zustand Store | 16 | 2 |
-| 画面UI | 18 | 7 |
-| 画面↔API連携 | 2 | 23 |
+| Zustand Store | 17 | 1 |
+| 画面UI | 21 | 4 |
+| 画面↔API連携 | 23 | 2 |
 | Edge Functions | 15 | 1 |
-| 外部連携 | 5 | 3 |
+| 外部連携 | 10 | 3 |
 | テスト | 0 | 25+ |
-| 権限・セキュリティ | 4 | 1 |
+| 権限・セキュリティ | 5 | 0 |
 
 ---
 
@@ -85,40 +85,41 @@
 ## Phase 2: Staff App 画面実装
 
 ### 2.1 ホーム画面 (index.tsx)
-- [ ] 本日売上サマリーAPI連携 `saleService.getSalesTotal()`
-- [ ] 本日来店数API連携 `visitService.getToday()`
-- [ ] 予約数API連携 `reservationService.getToday()`
-- [ ] 待機中・施術中カウントAPI連携
-- [ ] スタッフ別売上ランキング表示
-- [ ] Realtimeでリアルタイム更新
+- [x] 本日売上サマリーAPI連携 `saleService.getSalesTotal()`
+- [x] 本日来店数API連携 `visitService.getByDate()`
+- [x] 予約数API連携 `reservationService.getUpcoming()`
+- [x] 待機中・施術中カウントAPI連携
+- [x] クイックアクション（来店受付・会計・予約登録・顧客検索）
+- [x] 次の予約表示・施術中リスト表示
 
 ### 2.2 来店一覧 (visits.tsx)
-- [ ] `visitService.getActive()` 連携
-- [ ] 来店登録モーダル実装
-- [ ] 予約→来店変換処理
-- [ ] ステータス変更 `visitService.startService()`, `checkOut()`
-- [ ] 顧客詳細への遷移
-- [ ] 会計画面への遷移（visitId渡し）
-- [ ] Realtime更新
+- [x] `visitService.getByDate()` 連携
+- [x] 来店登録モーダル実装（ウォークイン対応）
+- [x] 予約→来店変換処理 `visitService.checkIn()`
+- [x] ステータス変更 `visitService.startService()`, `checkOut()`
+- [x] 顧客検索・新規登録連携
+- [x] 会計画面への遷移（visitId渡し）
+- [x] Realtime更新 `useRealtimeVisits()`
 
 ### 2.3 予約一覧 (reservations.tsx)
-- [ ] `reservationService.getByDate()` 連携
-- [ ] 新規予約作成モーダル実装
-  - [ ] 顧客選択（検索・新規作成）
-  - [ ] スタッフ選択
-  - [ ] メニュー選択
-  - [ ] 日時選択（カレンダーUI）
-- [ ] 予約編集モーダル
-- [ ] 予約キャンセル処理
-- [ ] 来店登録処理 `visitService.checkIn()`
-- [ ] Realtime更新
-- [ ] カレンダービュー実装（週表示・日表示）
+- [x] `reservationService.getByDate()` 連携
+- [x] 新規予約作成モーダル実装
+  - [x] 顧客選択（検索・新規作成）
+  - [x] スタッフ選択
+  - [x] メニュー選択
+  - [x] 日時選択（カレンダーUI）
+- [x] 予約編集モーダル（キャンセル・確認・NoShow）
+- [x] 予約キャンセル処理 `reservationService.cancel()`
+- [x] 来店登録処理 `visitService.checkIn()`
+- [x] Realtime更新 `useRealtimeReservations()`
+- [ ] カレンダービュー実装（週表示・日表示）- 将来拡張
 
 ### 2.4 顧客一覧 (customers.tsx)
-- [ ] `customerService.search()` 連携
-- [ ] ページネーション実装
-- [ ] 新規顧客登録モーダル
-- [ ] 顧客詳細への遷移
+- [x] `customerService.getAll()` 連携
+- [x] `customerService.search()` 連携
+- [x] 新規顧客登録モーダル `customerService.create()`
+- [x] 顧客詳細への遷移
+- [x] ウォークイン来店登録 `visitService.checkIn()`
 
 ### 2.5 顧客詳細 (customer-detail.tsx)
 - [ ] `customerService.getById()` 連携
@@ -131,63 +132,76 @@
 - [ ] 写真アップロード（Storage連携）
 
 ### 2.6 会計画面 (checkout.tsx)
-- [ ] visitId から来店情報取得
-- [ ] 顧客情報表示
-- [ ] メニュー選択 `menuService.getActive()` 連携
-- [ ] 商品選択 `productService.getActive()` 連携
-- [ ] 担当者設定（売上用・生産性用）
-- [ ] 割引適用
-  - [ ] 手動割引
-  - [ ] クーポン適用 `couponService.validate()`
-  - [ ] 回数券適用 `ticketService.use()`
-  - [ ] ポイント適用
-- [ ] 支払い方法選択
-- [ ] 会計確定 `saleService.create()` 呼び出し
-- [ ] 来店ステータス更新 `visitService.checkOut()`
-- [ ] レシート表示
+- [x] visitId から来店情報取得 `visitService.getById()`
+- [x] 顧客情報表示
+- [x] メニュー選択 `menuService.getActive()` 連携
+- [x] 商品選択 `productService.getActive()` 連携
+- [x] 担当者設定（売上用・生産性用）`staffService.getByStore()`
+- [x] 割引適用
+  - [x] 手動割引（金額・割合）
+  - [x] クーポン適用 `couponService.validateCode()`, `use()`
+  - [x] 回数券適用 `ticketService.getCustomerTickets()`, `use()`
+  - [x] ポイント適用 `pointService.usePoints()`
+- [x] 支払い方法選択（現金・クレジット・電子マネー・QR）
+- [x] 会計確定 `saleService.create()` 呼び出し
+- [x] 来店ステータス更新 `visitService.checkOut()`
+- [x] レシート表示 `printService.printReceipt()`
 
 ### 2.7 レシート印刷
-- [ ] `Receipt.tsx` コンポーネントをAPI連携
-- [ ] 店舗情報取得 `storeService.getById()`
-- [ ] 印刷用データ整形
-- [ ] expo-print 連携（PDF生成）
-- [ ] Bluetooth/WiFiプリンター連携（expo-print or カスタム）
-- [ ] 領収書再発行機能
+- [x] `printService.printReceipt()` サービス実装
+- [x] 店舗情報取得 `storeService.getById()`
+- [x] 印刷用データ整形（ReceiptData型）
+- [ ] Bluetooth/WiFiプリンター連携（将来拡張）
+- [ ] 領収書再発行機能（将来拡張）
 
 ### 2.8 店舗設定 (admin/store.tsx)
-- [ ] `storeService.getById()` 連携
-- [ ] `storeService.update()` 連携
-- [ ] ロゴアップロード（Storage連携）
-- [ ] レシート設定保存
-- [ ] インボイス登録番号保存
+- [x] `storeService.getById()` 連携
+- [x] `storeService.update()` 連携
+- [x] ロゴアップロード `companyService.uploadLogo()`
+- [x] レシート設定保存
+- [x] インボイス登録番号保存 `companyService.updateSettings()`
 
 ### 2.9 メニュー管理 (admin/menus.tsx)
-- [ ] `menuService.getAll()` 連携
-- [ ] `menuService.create()` 連携
-- [ ] `menuService.update()` 連携
-- [ ] `menuService.delete()` 連携（論理削除）
-- [ ] カテゴリ管理
-- [ ] 並び順変更（ドラッグ&ドロップ）
+- [x] `menuService.getAll()` 連携
+- [x] `menuService.create()` 連携
+- [x] `menuService.update()` 連携
+- [x] `menuService.delete()` 連携（論理削除）
+- [x] カテゴリ管理
+- [ ] 並び順変更（ドラッグ&ドロップ）- 将来拡張
 
 ### 2.10 商品管理 (admin/products.tsx)
-- [ ] `productService.getAll()` 連携
-- [ ] `productService.create()` 連携
-- [ ] `productService.update()` 連携
-- [ ] `productService.delete()` 連携
-- [ ] 在庫管理（入出庫記録）
-- [ ] 発注アラート設定
-- [ ] バーコードスキャン連携
+- [x] `productService.getAll()` 連携
+- [x] `productService.create()` 連携
+- [x] `productService.update()` 連携
+- [x] `productService.delete()` 連携
+- [x] 在庫管理 `productService.adjustStock()`
+- [ ] 発注アラート設定（将来拡張）
+- [ ] バーコードスキャン連携（将来拡張）
 
 ### 2.11 スタッフ管理 (admin/staff.tsx)
-- [ ] `staffService.getAll()` 連携
-- [ ] `staffService.create()` 連携
-- [ ] `staffService.update()` 連携
-- [ ] `staffService.delete()` 連携
-- [ ] 権限設定
-- [ ] 勤怠連携（将来）
+- [x] `staffService.getAll()`, `getByStore()` 連携
+- [x] `staffService.create()` 連携
+- [x] `staffService.update()` 連携
+- [x] `staffService.delete()` 連携
+- [x] 権限設定（role選択）
+- [x] 店舗割り当て `staffService.assignToStore()`
 
-### 2.12 追加必要画面
-- [ ] 売上レポート画面 `apps/staff/app/reports/sales.tsx`
+### 2.12 シフト・勤怠管理 (admin/shifts.tsx)
+- [x] `shiftService.getByDateRange()` 連携
+- [x] `shiftService.create()`, `update()`, `delete()` 連携
+- [x] `shiftService.copyWeek()` - 前週コピー機能
+- [x] `attendanceService.getTodayByStore()` 連携
+- [x] `attendanceService.clockIn()`, `clockOut()` 連携
+- [x] `attendanceService.startBreak()`, `endBreak()` 連携
+
+### 2.13 売上レポート (admin/reports.tsx)
+- [x] `saleService.getDailySales()` 連携
+- [x] `visitService.getTodayVisits()` 連携
+- [x] `reservationService.getByDateRange()` 連携
+- [x] 日別・週別サマリー表示
+- [ ] 月次レポート（将来拡張）
+
+### 2.14 追加必要画面
 - [ ] スタッフ別売上画面 `apps/staff/app/reports/staff-sales.tsx`
 - [ ] 顧客分析画面 `apps/staff/app/reports/customer-analysis.tsx`
 - [ ] 在庫管理画面 `apps/staff/app/admin/inventory.tsx`
@@ -315,8 +329,9 @@
 ### 5.2 認証・認可
 - [x] スタッフ権限管理（assistant/staff/manager/owner）
 - [x] 権限別UI制御フック（usePermissions）
-- [ ] 画面アクセス制御（PermissionGuard HOC）
-- [ ] API アクセス制御（Edge Function）
+- [x] 画面アクセス制御（PermissionGuard コンポーネント・HOC）
+- [x] useGuardedContent フック
+- [ ] API アクセス制御（Edge Function）- 将来拡張
 
 ### 5.3 データバックアップ
 - [ ] 日次自動バックアップ（Edge Function）
@@ -372,31 +387,31 @@
 
 ## 優先度別実装順序
 
-### 🔴 最優先（デモ可能にする）
-1. visits.tsx API連携
-2. reservations.tsx API連携 + 予約作成モーダル
-3. checkout.tsx API連携
-4. customers.tsx API連携
-5. customer-detail.tsx API連携
+### 🔴 最優先（デモ可能にする）- 完了
+1. ✅ visits.tsx API連携
+2. ✅ reservations.tsx API連携 + 予約作成モーダル
+3. ✅ checkout.tsx API連携
+4. ✅ customers.tsx API連携
+5. ⏳ customer-detail.tsx API連携（モックデータ使用中）
 
-### 🟡 高優先（実運用に必要）
-6. レシート印刷実装
-7. 日報機能
-8. 管理画面API連携（menu/product/staff/store）
-9. Realtime更新
-10. Stripe決済
+### 🟡 高優先（実運用に必要）- ほぼ完了
+6. ✅ レシート印刷実装（printService）
+7. ⏳ 日報機能（UI未実装）
+8. ✅ 管理画面API連携（menu/product/staff/store/shifts/reports）
+9. ✅ Realtime更新（visits/reservations）
+10. ⏳ Stripe決済（Edge Function実装済み、UI未連携）
 
 ### 🟢 中優先（差別化機能）
-11. AI髪型シミュレーション
-12. 顧客AI分析
-13. アップセル提案
-14. Pinterest連携
+11. ⏳ AI髪型シミュレーション（Edge Function実装済み）
+12. ⏳ 顧客AI分析（Edge Function実装済み）
+13. ⏳ アップセル提案（Edge Function実装済み）
+14. ⏳ Pinterest連携（Edge Function実装済み）
 
 ### 🔵 低優先（将来対応）
-15. ホットペッパー連携
-16. 音声文字起こし
-17. キャッシュドロワー連携
-18. 高度なレポート機能
+15. ⏳ ホットペッパー連携
+16. ⏳ 音声文字起こし
+17. ⏳ キャッシュドロワー連携
+18. ⏳ 高度なレポート機能
 
 ---
 

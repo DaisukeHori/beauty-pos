@@ -37,15 +37,36 @@ export default function HomeScreen() {
     if (!staff || !company) return;
 
     try {
-      // For now, use mock data since we don't have a store selected
-      // In real app, this would load from the selected store
+      const today = new Date().toISOString().split('T')[0];
+      const storeId = staff?.storeIds?.[0]; // Use first store if multiple
+
+      if (!storeId) {
+        console.warn('No store assigned to staff');
+        return;
+      }
+
+      // Load data in parallel
+      const [todayVisitsData, upcomingReservationsData, todaySalesTotal] = await Promise.all([
+        visitService.getByDate(company.id, storeId, today),
+        reservationService.getUpcoming(company.id, storeId, 10),
+        saleService.getSalesTotal(company.id, storeId, today),
+      ]);
+
+      // Calculate stats
+      const waiting = todayVisitsData.filter(v => v.status === 'waiting').length;
+      const inService = todayVisitsData.filter(v => v.status === 'in_service').length;
+
       setStats({
-        todayVisits: 12,
-        inService: 3,
-        waiting: 2,
-        todaySales: 125000,
-        upcomingReservations: 8,
+        todayVisits: todayVisitsData.length,
+        inService,
+        waiting,
+        todaySales: todaySalesTotal,
+        upcomingReservations: upcomingReservationsData.length,
       });
+
+      // Update stores
+      setTodayVisits(todayVisitsData);
+      setReservations(upcomingReservationsData);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     }
@@ -175,33 +196,48 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <Card variant="outlined" size="md">
-          <View style={styles.reservationItem}>
-            <View style={styles.reservationTime}>
-              <Text style={styles.reservationTimeText}>14:00</Text>
-              <Text style={styles.reservationDuration}>60分</Text>
-            </View>
-            <View style={styles.reservationInfo}>
-              <Text style={styles.reservationCustomer}>山田 花子 様</Text>
-              <Text style={styles.reservationMenu}>カット + カラー</Text>
-              <Badge colorScheme="primary" size="sm">本指名</Badge>
-            </View>
-          </View>
-        </Card>
+        {reservations.length === 0 ? (
+          <Card variant="outlined" size="md">
+            <Text style={styles.emptyText}>予約はありません</Text>
+          </Card>
+        ) : (
+          reservations.slice(0, 3).map((reservation, index) => {
+            const startTime = new Date(reservation.start_time);
+            const endTime = new Date(reservation.end_time);
+            const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+            const menuNames = reservation.menu_items?.map((m: { name: string }) => m.name).join(' + ') || '';
 
-        <Card variant="outlined" size="md" style={styles.reservationCard}>
-          <View style={styles.reservationItem}>
-            <View style={styles.reservationTime}>
-              <Text style={styles.reservationTimeText}>15:30</Text>
-              <Text style={styles.reservationDuration}>90分</Text>
-            </View>
-            <View style={styles.reservationInfo}>
-              <Text style={styles.reservationCustomer}>佐藤 美咲 様</Text>
-              <Text style={styles.reservationMenu}>パーマ + トリートメント</Text>
-              <Badge colorScheme="neutral" size="sm">フリー</Badge>
-            </View>
-          </View>
-        </Card>
+            return (
+              <Card
+                key={reservation.id}
+                variant="outlined"
+                size="md"
+                style={index > 0 ? styles.reservationCard : undefined}
+              >
+                <View style={styles.reservationItem}>
+                  <View style={styles.reservationTime}>
+                    <Text style={styles.reservationTimeText}>
+                      {startTime.getHours().toString().padStart(2, '0')}:{startTime.getMinutes().toString().padStart(2, '0')}
+                    </Text>
+                    <Text style={styles.reservationDuration}>{durationMinutes}分</Text>
+                  </View>
+                  <View style={styles.reservationInfo}>
+                    <Text style={styles.reservationCustomer}>
+                      {reservation.customer?.last_name} {reservation.customer?.first_name} 様
+                    </Text>
+                    <Text style={styles.reservationMenu}>{menuNames || 'メニュー未設定'}</Text>
+                    <Badge
+                      colorScheme={reservation.nomination_type === 'nominated' ? 'primary' : 'neutral'}
+                      size="sm"
+                    >
+                      {reservation.nomination_type === 'nominated' ? '本指名' : 'フリー'}
+                    </Badge>
+                  </View>
+                </View>
+              </Card>
+            );
+          })
+        )}
       </View>
 
       {/* Current In-Service */}
@@ -213,24 +249,54 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <Card variant="elevated" size="md">
-          <View style={styles.inServiceItem}>
-            <Avatar name="鈴木 太郎" size="md" />
-            <View style={styles.inServiceInfo}>
-              <Text style={styles.inServiceCustomer}>鈴木 太郎 様</Text>
-              <Text style={styles.inServiceMenu}>カット</Text>
-              <View style={styles.inServiceProgress}>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: '70%' }]} />
-                </View>
-                <Text style={styles.progressText}>残り約10分</Text>
-              </View>
-            </View>
-            <Button size="sm" variant="outline" onPress={() => router.push('/checkout')}>
-              会計へ
-            </Button>
-          </View>
-        </Card>
+        {todayVisits.filter(v => v.status === 'in_service').length === 0 ? (
+          <Card variant="outlined" size="md">
+            <Text style={styles.emptyText}>施術中のお客様はいません</Text>
+          </Card>
+        ) : (
+          todayVisits
+            .filter(v => v.status === 'in_service')
+            .slice(0, 3)
+            .map((visit) => {
+              const startTime = visit.service_start_at ? new Date(visit.service_start_at) : new Date(visit.check_in_at);
+              const estimatedDuration = visit.estimated_duration_minutes || 60;
+              const elapsedMinutes = Math.floor((Date.now() - startTime.getTime()) / 60000);
+              const remainingMinutes = Math.max(0, estimatedDuration - elapsedMinutes);
+              const progressPercent = Math.min(100, (elapsedMinutes / estimatedDuration) * 100);
+              const customerName = visit.customer
+                ? `${visit.customer.last_name} ${visit.customer.first_name}`
+                : '未登録顧客';
+
+              return (
+                <Card key={visit.id} variant="elevated" size="md" style={styles.inServiceCard}>
+                  <View style={styles.inServiceItem}>
+                    <Avatar name={customerName} size="md" />
+                    <View style={styles.inServiceInfo}>
+                      <Text style={styles.inServiceCustomer}>{customerName} 様</Text>
+                      <Text style={styles.inServiceMenu}>
+                        {visit.menu_items?.map((m: { name: string }) => m.name).join(', ') || '施術中'}
+                      </Text>
+                      <View style={styles.inServiceProgress}>
+                        <View style={styles.progressBar}>
+                          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+                        </View>
+                        <Text style={styles.progressText}>
+                          残り約{remainingMinutes}分
+                        </Text>
+                      </View>
+                    </View>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onPress={() => router.push({ pathname: '/checkout', params: { visitId: visit.id } })}
+                    >
+                      会計へ
+                    </Button>
+                  </View>
+                </Card>
+              );
+            })
+        )}
       </View>
     </ScrollView>
   );
@@ -404,5 +470,14 @@ const styles = StyleSheet.create({
   progressText: {
     ...textStyles.caption,
     color: colors.neutral[500],
+  },
+  emptyText: {
+    ...textStyles.bodySm,
+    color: colors.neutral[400],
+    textAlign: 'center',
+    paddingVertical: spacing[2],
+  },
+  inServiceCard: {
+    marginBottom: spacing[2],
   },
 });
