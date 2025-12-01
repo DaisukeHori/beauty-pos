@@ -45,8 +45,8 @@ export const cancellationService = {
 
     // First try to get store-specific policy
     if (storeId) {
-      const { data: storePolicy } = await supabase
-        .from('cancellation_policies')
+      const { data: storePolicy } = await (supabase
+        .from('cancellation_policies') as ReturnType<typeof supabase.from>)
         .select('*')
         .eq('company_id', companyId)
         .eq('store_id', storeId)
@@ -54,13 +54,13 @@ export const cancellationService = {
         .single();
 
       if (storePolicy) {
-        return this.mapPolicy(storePolicy);
+        return this.mapPolicy(storePolicy as Record<string, unknown>);
       }
     }
 
     // Fall back to company-wide policy
-    const { data: companyPolicy } = await supabase
-      .from('cancellation_policies')
+    const { data: companyPolicy } = await (supabase
+      .from('cancellation_policies') as ReturnType<typeof supabase.from>)
       .select('*')
       .eq('company_id', companyId)
       .is('store_id', null)
@@ -68,7 +68,7 @@ export const cancellationService = {
       .single();
 
     if (companyPolicy) {
-      return this.mapPolicy(companyPolicy);
+      return this.mapPolicy(companyPolicy as Record<string, unknown>);
     }
 
     // Return default policy if none configured
@@ -127,24 +127,24 @@ export const cancellationService = {
     };
 
     if (policy.id) {
-      const { data, error } = await supabase
-        .from('cancellation_policies')
-        .update(record)
+      const { data, error } = await (supabase
+        .from('cancellation_policies') as ReturnType<typeof supabase.from>)
+        .update(record as Record<string, unknown>)
         .eq('id', policy.id)
         .select()
         .single();
 
       if (error) throw error;
-      return this.mapPolicy(data);
+      return this.mapPolicy(data as Record<string, unknown>);
     } else {
-      const { data, error } = await supabase
-        .from('cancellation_policies')
-        .insert(record)
+      const { data, error } = await (supabase
+        .from('cancellation_policies') as ReturnType<typeof supabase.from>)
+        .insert(record as Record<string, unknown>)
         .select()
         .single();
 
       if (error) throw error;
-      return this.mapPolicy(data);
+      return this.mapPolicy(data as Record<string, unknown>);
     }
   },
 
@@ -158,8 +158,8 @@ export const cancellationService = {
     const supabase = getSupabaseClient();
 
     // Get reservation details
-    const { data: reservation, error: resError } = await supabase
-      .from('reservations')
+    const { data: reservation, error: resError } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
       .select('*, store:stores(*)')
       .eq('id', reservationId)
       .single();
@@ -168,8 +168,10 @@ export const cancellationService = {
       throw new Error('Reservation not found');
     }
 
+    const res = reservation as Record<string, unknown>;
+
     // Get the policy
-    const policy = await this.getPolicy(reservation.company_id, reservation.store_id);
+    const policy = await this.getPolicy(res.company_id as string, res.store_id as string);
     if (!policy) {
       return {
         feePercentage: 0,
@@ -180,7 +182,7 @@ export const cancellationService = {
     }
 
     // Calculate estimated price from reservation (or use a default)
-    const estimatedPrice = reservation.estimated_price || reservation.total_price || 0;
+    const estimatedPrice = (res.estimated_price as number) || (res.total_price as number) || 0;
 
     // Handle no-show
     if (isNoShow) {
@@ -193,7 +195,7 @@ export const cancellationService = {
     }
 
     // Calculate hours until appointment
-    const appointmentTime = new Date(reservation.start_time).getTime();
+    const appointmentTime = new Date(res.start_time as string).getTime();
     const now = Date.now();
     const hoursUntilAppointment = (appointmentTime - now) / (1000 * 60 * 60);
 
@@ -236,8 +238,8 @@ export const cancellationService = {
     const supabase = getSupabaseClient();
 
     // Get reservation
-    const { data: reservation, error: resError } = await supabase
-      .from('reservations')
+    const { data: reservation, error: resError } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
       .select('*')
       .eq('id', reservationId)
       .single();
@@ -246,19 +248,21 @@ export const cancellationService = {
       throw new Error('Reservation not found');
     }
 
+    const res = reservation as Record<string, unknown>;
+
     // Calculate fee
     const feeResult = await this.calculateFee(reservationId, isNoShow);
     const actualFee = waiveFee ? 0 : feeResult.feeAmount;
 
     // Update reservation
-    const { data: updatedReservation, error: updateError } = await supabase
-      .from('reservations')
+    const { data: updatedReservation, error: updateError } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
       .update({
         status: isNoShow ? 'no_show' : 'cancelled',
         cancellation_reason: reason,
         cancellation_fee: actualFee,
         cancelled_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', reservationId)
       .select()
       .single();
@@ -266,10 +270,10 @@ export const cancellationService = {
     if (updateError) throw updateError;
 
     // Record cancellation history
-    if (reservation.customer_id) {
+    if (res.customer_id) {
       await this.recordCancellation(
-        reservation.company_id,
-        reservation.customer_id,
+        res.company_id as string,
+        res.customer_id as string,
         reservationId,
         isNoShow,
         actualFee,
@@ -277,16 +281,16 @@ export const cancellationService = {
       );
 
       // Check if customer should be blacklisted
-      const history = await this.getCustomerHistory(reservation.company_id, reservation.customer_id);
-      const policy = await this.getPolicy(reservation.company_id, reservation.store_id);
+      const history = await this.getCustomerHistory(res.company_id as string, res.customer_id as string);
+      const policy = await this.getPolicy(res.company_id as string, res.store_id as string);
 
       if (policy && history.noShowCount >= policy.maxNoShowsBeforeBlacklist) {
-        await this.blacklistCustomer(reservation.company_id, reservation.customer_id, 'no_show_limit');
+        await this.blacklistCustomer(res.company_id as string, res.customer_id as string, 'no_show_limit');
       }
     }
 
     return {
-      reservation: updatedReservation,
+      reservation: updatedReservation as Tables<'reservations'>,
       feeResult: { ...feeResult, feeAmount: actualFee },
       penaltyApplied: actualFee > 0,
     };
@@ -305,8 +309,8 @@ export const cancellationService = {
   ): Promise<void> {
     const supabase = getSupabaseClient();
 
-    await supabase
-      .from('cancellation_records')
+    await (supabase
+      .from('cancellation_records') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         customer_id: customerId,
@@ -315,7 +319,7 @@ export const cancellationService = {
         fee_amount: feeAmount,
         rule_applied: ruleApplied,
         created_at: new Date().toISOString(),
-      });
+      } as Record<string, unknown>);
   },
 
   /**
@@ -328,34 +332,36 @@ export const cancellationService = {
     const supabase = getSupabaseClient();
 
     // Get cancellation records
-    const { data: records } = await supabase
-      .from('cancellation_records')
+    const { data: records } = await (supabase
+      .from('cancellation_records') as ReturnType<typeof supabase.from>)
       .select('*')
       .eq('company_id', companyId)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false });
 
     // Get customer blacklist status
-    const { data: customer } = await supabase
-      .from('customers')
+    const { data: customer } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .select('is_blacklisted')
       .eq('id', customerId)
       .single();
 
-    const cancellations = records || [];
-    const noShowCount = cancellations.filter((r: Record<string, unknown>) => r.cancellation_type === 'no_show').length;
-    const totalPenaltyFees = cancellations.reduce((sum: number, r: Record<string, unknown>) => sum + ((r.fee_amount as number) || 0), 0);
+    const cancellations = (records || []) as Record<string, unknown>[];
+    const noShowCount = cancellations.filter((r) => r.cancellation_type === 'no_show').length;
+    const totalPenaltyFees = cancellations.reduce((sum: number, r) => sum + ((r.fee_amount as number) || 0), 0);
 
     // Calculate late cancellation counts (using 24h and 48h thresholds)
-    const lateCancel24hCount = cancellations.filter((r: Record<string, unknown>) =>
+    const lateCancel24hCount = cancellations.filter((r) =>
       r.cancellation_type === 'cancelled' &&
       ((r.rule_applied as string) || '').includes('24')
     ).length;
 
-    const lateCancel48hCount = cancellations.filter((r: Record<string, unknown>) =>
+    const lateCancel48hCount = cancellations.filter((r) =>
       r.cancellation_type === 'cancelled' &&
       ((r.rule_applied as string) || '').includes('48')
     ).length;
+
+    const cust = customer as Record<string, unknown> | null;
 
     return {
       customerId,
@@ -364,7 +370,7 @@ export const cancellationService = {
       lateCancel24hCount,
       lateCancel48hCount,
       lastCancellationAt: cancellations[0]?.created_at as string | undefined,
-      isBlacklisted: customer?.is_blacklisted || false,
+      isBlacklisted: cust?.is_blacklisted as boolean || false,
       totalPenaltyFees,
     };
   },
@@ -379,26 +385,26 @@ export const cancellationService = {
   ): Promise<void> {
     const supabase = getSupabaseClient();
 
-    await supabase
-      .from('customers')
+    await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         is_blacklisted: true,
         blacklist_reason: reason,
         blacklisted_at: new Date().toISOString(),
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId)
       .eq('company_id', companyId);
 
     // Log the blacklist event
-    await supabase
-      .from('audit_logs')
+    await (supabase
+      .from('audit_logs') as ReturnType<typeof supabase.from>)
       .insert({
         company_id: companyId,
         entity_type: 'customer',
         entity_id: customerId,
         action: 'blacklist',
         details: { reason },
-      });
+      } as Record<string, unknown>);
   },
 
   /**
@@ -407,13 +413,13 @@ export const cancellationService = {
   async removeFromBlacklist(companyId: string, customerId: string): Promise<void> {
     const supabase = getSupabaseClient();
 
-    await supabase
-      .from('customers')
+    await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .update({
         is_blacklisted: false,
         blacklist_reason: null,
         blacklisted_at: null,
-      })
+      } as Record<string, unknown>)
       .eq('id', customerId)
       .eq('company_id', companyId);
   },
@@ -435,8 +441,8 @@ export const cancellationService = {
     const warningAt = threshold - 1;
 
     // Get customers with high no-show counts
-    const { data: records } = await supabase
-      .from('cancellation_records')
+    const { data: records } = await (supabase
+      .from('cancellation_records') as ReturnType<typeof supabase.from>)
       .select('customer_id')
       .eq('company_id', companyId)
       .eq('cancellation_type', 'no_show');
@@ -445,7 +451,7 @@ export const cancellationService = {
 
     // Count no-shows per customer
     const noShowCounts: Record<string, number> = {};
-    records.forEach((r: { customer_id: string }) => {
+    (records as Array<{ customer_id: string }>).forEach((r) => {
       noShowCounts[r.customer_id] = (noShowCounts[r.customer_id] || 0) + 1;
     });
 
@@ -457,13 +463,13 @@ export const cancellationService = {
     if (atRiskCustomerIds.length === 0) return [];
 
     // Get customer names
-    const { data: customers } = await supabase
-      .from('customers')
+    const { data: customers } = await (supabase
+      .from('customers') as ReturnType<typeof supabase.from>)
       .select('id, first_name, last_name')
       .in('id', atRiskCustomerIds)
       .eq('is_blacklisted', false);
 
-    return (customers || []).map((c: { id: string; first_name: string; last_name: string }) => ({
+    return ((customers || []) as Array<{ id: string; first_name: string; last_name: string }>).map((c) => ({
       customerId: c.id,
       customerName: `${c.last_name} ${c.first_name}`,
       noShowCount: noShowCounts[c.id],
@@ -476,8 +482,8 @@ export const cancellationService = {
    */
   async getByDateRange(storeId: string, startDate: string, endDate: string) {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('reservations')
+    const { data, error } = await (supabase
+      .from('reservations') as ReturnType<typeof supabase.from>)
       .select(`
         *,
         customer:customers(*),
