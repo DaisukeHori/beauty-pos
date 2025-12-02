@@ -19,12 +19,18 @@
 - [技術スタック](#技術スタック)
 - [プロジェクト構成](#プロジェクト構成)
 - [セットアップ](#セットアップ)
+  - [クイックスタート（ローカル開発）](#クイックスタートローカル開発)
+  - [Cloud Supabase（本番/ステージング）への接続](#cloud-supabase本番ステージングへの接続)
+  - [iPadでの動作確認](#ipadでの動作確認)
+  - [環境変数リファレンス](#環境変数リファレンス)
 - [開発コマンド](#開発コマンド)
 - [データベーススキーマ](#データベーススキーマ)
 - [APIサービス一覧](#apiサービス一覧)
 - [画面一覧](#画面一覧)
 - [SaaSプラン](#saasプラン)
 - [テスト](#テスト)
+- [トラブルシューティング](#トラブルシューティング)
+- [よくある質問（FAQ）](#よくある質問faq)
 - [デプロイ](#デプロイ)
 
 ---
@@ -265,66 +271,382 @@ beauty-pos/
 
 ### 必要条件
 
-- Node.js 18.0.0以上
-- pnpm 8.15.0以上
-- Expo CLI
-- Supabase CLI
-- Xcode（iOSビルド用）
+| ツール | バージョン | 確認コマンド | 用途 |
+|--------|-----------|--------------|------|
+| Node.js | 18.0.0以上 | `node -v` | JavaScript実行環境 |
+| pnpm | 8.15.0以上 | `pnpm -v` | パッケージマネージャー |
+| Expo CLI | 最新版 | `npx expo --version` | React Native開発 |
+| Supabase CLI | 最新版 | `supabase --version` | データベース管理 |
+| Xcode | 14.0以上 | Xcodeを開いて確認 | iOSビルド（Mac必須） |
+| Git | 2.30以上 | `git --version` | バージョン管理 |
 
-### 1. リポジトリのクローン
+---
+
+## クイックスタート（ローカル開発）
+
+### Step 1: リポジトリのクローン
 
 ```bash
+# リポジトリをクローン
 git clone https://github.com/your-org/beauty-pos.git
+
+# ディレクトリに移動
 cd beauty-pos
 ```
 
-### 2. 依存関係のインストール
+### Step 2: 依存関係のインストール
 
 ```bash
+# pnpmがインストールされていない場合
+npm install -g pnpm
+
+# 依存関係をインストール
 pnpm install
 ```
 
-### 3. 環境変数の設定
+**確認ポイント:** エラーなく完了すれば成功です。
 
-各アプリに`.env`ファイルを作成します。
-
-**apps/staff/.env**
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
-```
-
-**apps/customer/.env**
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 4. Supabaseのセットアップ
+### Step 3: ローカルSupabaseの起動
 
 ```bash
-# Supabaseローカル起動
-pnpm supabase:start
+# Dockerが起動していることを確認
+docker ps
 
-# マイグレーション実行
+# Supabaseローカル環境を起動
+pnpm supabase:start
+```
+
+起動後、以下のような出力が表示されます：
+
+```
+Started supabase local development setup.
+
+         API URL: http://localhost:54321
+          DB URL: postgresql://postgres:postgres@localhost:54322/postgres
+      Studio URL: http://localhost:54323
+    Inbucket URL: http://localhost:54324
+      JWT secret: super-secret-jwt-token-with-at-least-32-characters-long
+        anon key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**この出力に表示される`anon key`を次のステップで使います。**
+
+### Step 4: 環境変数の設定
+
+```bash
+# スタッフアプリ用の.envファイルを作成
+cat > apps/staff/.env << 'EOF'
+EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=（Step 3で表示されたanon keyをここに貼り付け）
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+EOF
+
+# 顧客アプリ用の.envファイルを作成
+cat > apps/customer/.env << 'EOF'
+EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=（Step 3で表示されたanon keyをここに貼り付け）
+EOF
+```
+
+### Step 5: データベースのセットアップ
+
+```bash
+# マイグレーション実行（テーブル作成）
 pnpm db:migrate
 
-# シードデータ投入（オプション）
+# シードデータ投入（デモ用データ）
 pnpm db:seed
 ```
 
-### 5. 開発サーバー起動
+### Step 6: 開発サーバーの起動
 
 ```bash
 # 全パッケージの開発サーバー起動
 pnpm dev
+```
 
-# スタッフアプリのみ起動
-cd apps/staff && pnpm dev
+**確認方法:** ブラウザで `http://localhost:8081` にアクセスしてアプリが表示されれば成功です。
 
-# 顧客アプリのみ起動
-cd apps/customer && pnpm dev
+---
+
+## Cloud Supabase（本番/ステージング）への接続
+
+ローカルではなく、Supabase Cloud（本番環境）に接続する場合の手順です。
+
+### Step 1: Supabaseアカウントの作成
+
+1. [https://supabase.com](https://supabase.com) にアクセス
+2. 「Start your project」をクリック
+3. GitHubまたはメールでサインアップ
+
+### Step 2: 新規プロジェクトの作成
+
+1. ダッシュボード右上の「New Project」をクリック
+2. 以下の情報を入力：
+
+| 項目 | 入力内容 | 備考 |
+|------|----------|------|
+| Organization | 自分の組織を選択 | 初回は自動作成される |
+| Project name | `beauty-pos-production` | 任意の名前 |
+| Database Password | 強力なパスワード | **必ず控えておく** |
+| Region | `Northeast Asia (Tokyo)` | 日本向けは東京推奨 |
+| Pricing Plan | Free / Pro | Freeで始めてOK |
+
+3. 「Create new project」をクリック
+4. 作成完了まで1〜2分待機
+
+### Step 3: API情報の取得
+
+プロジェクトが作成されたら、接続情報を取得します。
+
+1. 左メニューの「Project Settings」（歯車アイコン）をクリック
+2. 「API」を選択
+3. 以下の情報をメモ：
+
+| 項目 | 場所 | 用途 |
+|------|------|------|
+| **Project URL** | `https://xxxxx.supabase.co` | EXPO_PUBLIC_SUPABASE_URL |
+| **anon public** | Project API keys内 | EXPO_PUBLIC_SUPABASE_ANON_KEY |
+| **service_role** | Project API keys内 | Edge Functions用（秘密） |
+
+**注意:** `service_role`キーは絶対に公開しないでください。
+
+### Step 4: ローカルCLIとの連携
+
+```bash
+# Supabase CLIにログイン
+supabase login
+
+# ブラウザが開くのでログイン認証を完了
+```
+
+```bash
+# プロジェクトをリンク
+supabase link --project-ref あなたのプロジェクトID
+
+# プロジェクトIDはダッシュボードURLから取得:
+# https://supabase.com/dashboard/project/xxxxxx ← このxxxxxxがID
+```
+
+### Step 5: マイグレーションの適用
+
+```bash
+# ローカルのマイグレーションをCloud Supabaseに適用
+supabase db push
+
+# 確認プロンプトで 'y' を入力
+```
+
+**確認方法:** Supabaseダッシュボード → Table Editor でテーブルが作成されていればOK
+
+### Step 6: Edge Functionsのデプロイ
+
+```bash
+# すべてのEdge Functionsをデプロイ
+supabase functions deploy
+
+# 特定の関数のみデプロイする場合
+supabase functions deploy create-checkout-session
+supabase functions deploy send-line-notification
+```
+
+### Step 7: 環境変数の更新
+
+```bash
+# apps/staff/.env をCloud用に更新
+cat > apps/staff/.env << 'EOF'
+EXPO_PUBLIC_SUPABASE_URL=https://あなたのプロジェクトID.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=あなたのanon_key
+EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx（本番の場合）
+EOF
+```
+
+### Step 8: 接続テスト
+
+```bash
+# 開発サーバー起動
+pnpm dev
+
+# ログイン画面で認証が通ればCloud接続成功
+```
+
+---
+
+## iPadでの動作確認
+
+### 方法1: Expo Go（最も簡単）
+
+開発中のアプリをiPadで即座に確認できます。
+
+#### 前提条件
+- iPadとPCが**同一のWi-Fiネットワーク**に接続されていること
+- iPad App Storeから「Expo Go」アプリをインストール済み
+
+#### 手順
+
+**PCでの操作:**
+
+```bash
+# プロジェクトルートで開発サーバーを起動
+pnpm dev
+
+# または特定のアプリのみ
+cd apps/staff && npx expo start
+```
+
+ターミナルにQRコードが表示されます。
+
+**iPadでの操作:**
+
+1. iPadの「カメラ」アプリを開く
+2. ターミナルに表示されたQRコードを読み取る
+3. 「Expo Goで開く」の通知をタップ
+4. アプリが起動します
+
+#### トラブルシューティング
+
+| 問題 | 解決方法 |
+|------|----------|
+| QRコードが読めない | 同じWi-Fiか確認、ファイアウォール設定確認 |
+| 「Unable to connect」 | PC側で `npx expo start --tunnel` を試す |
+| アプリが起動しない | Expo Goを最新版に更新 |
+
+### 方法2: Development Build（推奨・フル機能）
+
+Expo Goでは使えないネイティブ機能（カメラ、Bluetooth等）を使う場合はこちら。
+
+#### Step 1: EAS CLIのインストール
+
+```bash
+npm install -g eas-cli
+eas login  # Expoアカウントでログイン
+```
+
+#### Step 2: Development Buildの作成
+
+```bash
+cd apps/staff
+
+# iOSのDevelopment Buildを作成
+eas build --profile development --platform ios
+
+# ビルド完了まで15〜30分待機
+```
+
+#### Step 3: iPadへのインストール
+
+1. ビルド完了後、メールまたはExpoダッシュボードからダウンロードリンクを取得
+2. iPadのSafariでリンクを開く
+3. 「インストール」をタップ
+4. 設定 → 一般 → デバイス管理 で信頼を許可
+
+#### Step 4: 開発サーバーへの接続
+
+```bash
+# PCで開発サーバー起動
+cd apps/staff && npx expo start --dev-client
+```
+
+iPadでインストールしたアプリを開くと、開発サーバーに自動接続します。
+
+### 方法3: シミュレータ（Mac + Xcode必須）
+
+実機がなくてもiPadの動作を確認できます。
+
+```bash
+# iPadシミュレータで起動
+cd apps/staff && npx expo run:ios --device "iPad Pro (12.9-inch)"
+
+# 利用可能なシミュレータ一覧
+xcrun simctl list devices
+```
+
+### iPadでの状態確認・デバッグ
+
+#### React Native Debuggerを使用
+
+```bash
+# 開発サーバー起動時
+npx expo start
+
+# 'j' を押してデバッガーを開く
+```
+
+iPadアプリを2回シェイクするとデバッグメニューが表示されます。
+
+#### Console.logの確認
+
+```bash
+# ターミナルにログが表示される
+npx expo start
+
+# または専用ログビューア
+npx react-native log-ios
+```
+
+#### Supabase接続状態の確認
+
+アプリ内で接続状態を確認するには、設定画面 → システム情報 で以下が表示されます：
+- 接続先Supabase URL
+- 認証状態
+- 最終同期時刻
+
+---
+
+## 環境変数リファレンス
+
+### 必須環境変数
+
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `EXPO_PUBLIC_SUPABASE_URL` | SupabaseプロジェクトURL | `https://xxx.supabase.co` |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase公開APIキー | `eyJhbGci...` |
+
+### オプション環境変数
+
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe公開キー | `pk_live_xxx` |
+| `EXPO_PUBLIC_LINE_CHANNEL_ID` | LINE Channel ID | `1234567890` |
+| `EXPO_PUBLIC_SENTRY_DSN` | Sentryエラー監視 | `https://xxx@sentry.io/xxx` |
+
+### Edge Functions用（Supabaseダッシュボードで設定）
+
+```bash
+# Supabaseダッシュボード → Settings → Edge Functions で設定
+STRIPE_SECRET_KEY=sk_live_xxx
+LINE_CHANNEL_ACCESS_TOKEN=xxx
+TWILIO_ACCOUNT_SID=xxx
+TWILIO_AUTH_TOKEN=xxx
+SENDGRID_API_KEY=xxx
+```
+
+---
+
+## 開発環境の切り替え
+
+### ローカル ↔ Cloud の切り替え
+
+```bash
+# ローカル環境用
+cp apps/staff/.env.local apps/staff/.env
+
+# ステージング環境用
+cp apps/staff/.env.staging apps/staff/.env
+
+# 本番環境用
+cp apps/staff/.env.production apps/staff/.env
+```
+
+**推奨: 各環境ファイルをあらかじめ用意しておく**
+
+```
+apps/staff/
+├── .env              ← 現在有効な設定（.gitignore）
+├── .env.local        ← ローカル開発用テンプレート
+├── .env.staging      ← ステージング用
+└── .env.production   ← 本番用（機密情報は含めない）
 ```
 
 ---
@@ -743,6 +1065,253 @@ describe('useSaleStore', () => {
     expect(totals.total).toBe(5500);
   });
 });
+```
+
+---
+
+## トラブルシューティング
+
+### 環境構築時の問題
+
+#### pnpm install でエラーが出る
+
+| エラー | 原因 | 解決方法 |
+|--------|------|----------|
+| `EACCES permission denied` | npm権限問題 | `sudo chown -R $USER ~/.npm` |
+| `node version mismatch` | Node.jsバージョン不一致 | `nvm install 18 && nvm use 18` |
+| `peer dependency conflicts` | パッケージ競合 | `pnpm install --force` |
+| `ENOENT no such file` | キャッシュ破損 | `rm -rf node_modules && pnpm install` |
+
+#### Supabase起動でエラーが出る
+
+```bash
+# Docker関連エラーの場合
+docker ps  # Dockerが動作していることを確認
+
+# ポート競合の場合
+lsof -i :54321  # ポート使用状況を確認
+supabase stop && supabase start  # 再起動
+
+# 完全リセットする場合
+supabase stop --no-backup
+supabase start
+```
+
+#### マイグレーションエラー
+
+```bash
+# ローカルDBをリセット
+supabase db reset
+
+# Cloud Supabaseの場合はダッシュボードで確認
+# Table Editor → SQL Editor でエラー確認
+```
+
+### Supabase接続の問題
+
+#### 「Supabase client not initialized」エラー
+
+**原因:** 環境変数が正しく設定されていない
+
+**確認手順:**
+```bash
+# 環境変数ファイルが存在するか確認
+cat apps/staff/.env
+
+# 変数が正しいか確認
+echo $EXPO_PUBLIC_SUPABASE_URL
+```
+
+**解決方法:**
+1. `.env` ファイルが存在することを確認
+2. URLとキーが正しいことを確認
+3. 開発サーバーを再起動: `Ctrl+C` → `pnpm dev`
+
+#### 「Invalid API key」エラー
+
+**原因:** anon keyが間違っている
+
+**解決方法:**
+1. Supabaseダッシュボード → Settings → API
+2. 「anon public」キーをコピー
+3. `.env` ファイルを更新
+4. 開発サーバー再起動
+
+#### Cloud Supabaseに接続できない
+
+```bash
+# 接続テスト（URLが正しいか確認）
+curl https://あなたのプロジェクトID.supabase.co/rest/v1/
+
+# 正常なレスポンス例
+{"message":"..."}
+```
+
+**チェックリスト:**
+- [ ] URLが `https://` で始まっているか
+- [ ] プロジェクトIDが正しいか
+- [ ] ネットワーク接続があるか
+- [ ] Supabaseプロジェクトがアクティブか（Freeプランは7日間非アクティブで一時停止）
+
+### iPad・Expo関連の問題
+
+#### QRコードをスキャンしてもアプリが開かない
+
+**原因と解決方法:**
+
+| チェック項目 | 確認方法 | 解決方法 |
+|-------------|----------|----------|
+| 同一Wi-Fi | iPadとPCのIPアドレス比較 | 同じネットワークに接続 |
+| Expo Go | App Storeで確認 | 最新版にアップデート |
+| ファイアウォール | PC設定を確認 | ポート19000-19002を開放 |
+| VPN | 接続状況確認 | VPNを一時的に無効化 |
+
+**代替手段: Tunnel接続**
+```bash
+# LAN接続がうまくいかない場合
+npx expo start --tunnel
+```
+
+#### 「Unable to resolve host」エラー
+
+```bash
+# 開発サーバーのIPアドレスを確認
+ifconfig | grep inet
+
+# 明示的にホストを指定
+npx expo start --host 192.168.x.x
+```
+
+#### アプリが真っ白になる / クラッシュする
+
+**デバッグ手順:**
+
+1. ターミナルでログを確認
+```bash
+npx expo start
+# ログを監視しながら操作
+```
+
+2. デバッグメニューを開く（iPadを2回シェイク）
+   - 「Debug Remote JS」でブラウザデバッガー起動
+   - 「Show Performance Monitor」で負荷確認
+
+3. キャッシュクリア
+```bash
+npx expo start --clear
+```
+
+#### 「Invariant Violation: Native module cannot be null」
+
+**原因:** Expo Goでサポートされていないネイティブ機能を使用
+
+**解決方法:**
+Development Buildを作成する
+```bash
+cd apps/staff
+eas build --profile development --platform ios
+```
+
+### データベースの問題
+
+#### RLSポリシーエラー
+
+```sql
+-- エラー例: "new row violates row-level security policy"
+
+-- 原因: ログインユーザーのcompany_idがデータと一致しない
+-- 確認方法（SQL Editor）:
+SELECT auth.jwt() ->> 'company_id';
+
+-- 確認: データのcompany_idと一致しているか
+SELECT company_id FROM customers LIMIT 1;
+```
+
+#### データが表示されない
+
+**チェックリスト:**
+1. ログインしているか確認
+2. 正しい店舗/会社にアクセスしているか確認
+3. シードデータが投入されているか確認
+
+```bash
+# シードデータ投入
+pnpm db:seed
+```
+
+### 認証の問題
+
+#### ログインできない
+
+| エラーメッセージ | 原因 | 解決方法 |
+|-----------------|------|----------|
+| Invalid credentials | メール/パスワード間違い | 正しい情報を入力 |
+| Email not confirmed | メール未確認 | 確認メールをクリック |
+| User not found | ユーザー未登録 | 新規登録する |
+
+#### セッションが切れる
+
+```typescript
+// デバッグ用: セッション状態を確認
+import { getSupabaseClient } from '@beauty-pos/api';
+
+const { data: { session } } = await getSupabaseClient().auth.getSession();
+console.log('Session:', session);
+```
+
+### パフォーマンスの問題
+
+#### アプリの動作が遅い
+
+**対処法:**
+1. 開発ビルドを使用（Expo Goより高速）
+2. `console.log` を本番では削除
+3. 大量データはページネーション
+
+```bash
+# パフォーマンス計測
+npx expo start
+# 'p' を押してPerformance Monitorを有効化
+```
+
+---
+
+## よくある質問（FAQ）
+
+### Q: ローカルとCloudのSupabaseを切り替えるには？
+
+A: `.env` ファイルを切り替えます。
+
+```bash
+# ローカルに切り替え
+EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
+
+# Cloudに切り替え
+EXPO_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+```
+
+### Q: テストデータをリセットするには？
+
+```bash
+# ローカルの場合
+supabase db reset
+pnpm db:seed
+
+# Cloudの場合
+# ダッシュボード → Table Editor → テーブル選択 → 全行削除
+```
+
+### Q: 複数のiPadで同時に動作確認するには？
+
+同じ開発サーバーに複数台接続可能です。
+- QRコードをそれぞれのiPadでスキャン
+- リアルタイム同期も確認可能
+
+### Q: 本番用のビルドを作るには？
+
+```bash
+cd apps/staff
+eas build --profile production --platform ios
 ```
 
 ---
